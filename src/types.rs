@@ -2032,3 +2032,106 @@ pub struct Product {
     /// Order confirmation URL.
     pub confirm_url: String,
 }
+
+// ── gateway: saved-card charges ───────────────────────────────────────────────
+
+/// Credit card data for saved-card charges.
+///
+/// Either `token` (from a previous tokenization) or raw card details are
+/// required.  When both are omitted the request is rejected by bePaid.
+#[derive(Debug, Clone, Serialize)]
+pub struct ChargeCreditCard {
+    /// Card number (PAN).  Omit when using `token`.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub number: Option<String>,
+    /// Card verification value (CVV/CVC).
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub verification_value: Option<String>,
+    /// Cardholder name.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub holder: Option<String>,
+    /// Expiration month (1-12).
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub exp_month: Option<i32>,
+    /// Expiration year.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub exp_year: Option<i32>,
+    /// Saved card token.  Required when card details are omitted.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub token: Option<String>,
+    /// Skip 3-D Secure verification (requires prior agreement with bePaid).
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub skip_three_d_secure_verification: Option<bool>,
+}
+
+/// Additional data for saved-card charges.
+///
+/// Only the most common fields are typed; the remaining undocumented sub-objects
+/// (`p2p`, `masterpass`, `sub_brand`, `card_on_file`) can be added in the
+/// future as bePaid documents them.
+#[derive(Debug, Clone, Serialize)]
+pub struct ChargeAdditionalData {
+    /// Contract types, e.g. `["oneclick"]`, `["recurring", "card_on_file"]`.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub contract: Option<Vec<String>>,
+    /// Gateway IDs excluded from cascading.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub excluded_gateways: Option<Vec<String>>,
+    /// Browser data for 3-D Secure 2.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub browser: Option<BrowserInfo>,
+}
+
+/// Request to charge a saved card (oneclick / recurring).
+///
+/// Uses the same Gateway API family as regular payments (X-API-Version 3).
+#[derive(Debug, Clone, Serialize)]
+pub struct ChargeRequest {
+    /// Amount in minor units (integers).
+    pub amount: i64,
+    /// ISO 4217 currency code, e.g. `USD`.
+    pub currency: String,
+    /// Free-form purchase description.
+    pub description: String,
+    /// Merchant tracking id.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub tracking_id: Option<String>,
+    /// ISO 8601 expiry (`YYYY-MM-DDThh:mm:ssTZD`); payment cannot be completed
+    /// after this time.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub expired_at: Option<String>,
+    /// Reject duplicate `tracking_id` values (default `true`).
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub duplicate_check: Option<bool>,
+    /// Dynamic billing descriptor shown on the cardholder statement.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub dynamic_billing_descriptor: Option<String>,
+    /// ISO 639-1 language code.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub language: Option<String>,
+    /// URL for status notifications.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub notification_url: Option<String>,
+    /// URL for 3-D Secure verification redirect.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub verification_url: Option<String>,
+    /// URL the customer is returned to after 3-D Secure (conditional — required
+    /// when 3-D Secure may be triggered).
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub return_url: Option<String>,
+    /// `true` for test mode.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub test: Option<bool>,
+    /// Force 3-D Secure even on tokenized cards (overrides
+    /// `credit_card.skip_three_d_secure_verification`).
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub force_three_d_secure_verification: Option<bool>,
+    /// Credit card data — either a saved `token` or raw card details.
+    pub credit_card: ChargeCreditCard,
+    /// Customer metadata.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub customer: Option<Customer>,
+    /// Additional data (contract types, excluded gateways, 3-D Secure 2 browser).
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub additional_data: Option<ChargeAdditionalData>,
+}

@@ -2,10 +2,10 @@ use bepaid::{
     BepaidClient, BepaidError,
     types::{
         ApmConfirmRequest, ApmPaymentRequest, AuthorizationRequest, BalanceRequest,
-        CancelSubscriptionRequest, CaptureRequest, CheckoutRequest, CreateTokenRequest,
-        CustomerRecord, P2pRequest, PaymentRequest, PayoutRequest, ProductCreateRequest,
-        ProductUpdateRequest, RefundRequest, ReportListRequest, ReportParams,
-        SubscriptionCreateRequest, VoidRequest,
+        CancelSubscriptionRequest, CaptureRequest, ChargeCreditCard, ChargeRequest,
+        CheckoutRequest, CreateTokenRequest, CustomerRecord, P2pRequest, PaymentRequest,
+        PayoutRequest, ProductCreateRequest, ProductUpdateRequest, RefundRequest,
+        ReportListRequest, ReportParams, SubscriptionCreateRequest, VoidRequest,
     },
     webhook::{
         parse_subscription_webhook, parse_webhook, verify_webhook_auth, verify_webhook_signature,
@@ -1342,4 +1342,61 @@ async fn plan_payment_link_happy_path() {
         resp["redirect_url"],
         "https://checkout.bepaid.by/pay?token=abc"
     );
+}
+
+#[tokio::test]
+async fn charge_saved_card_happy_path() {
+    let server = MockServer::start().await;
+    Mock::given(method("POST"))
+        .and(path("/services/credit_cards/charges"))
+        .and(wiremock::matchers::header("x-api-version", "3"))
+        .and(wiremock::matchers::header("authorization", AUTH))
+        .respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({
+            "transaction": {
+                "uid": "1-310b0da80b",
+                "type": "payment",
+                "status": "successful",
+                "amount": 700,
+                "currency": "USD",
+                "description": "Recurring charge",
+                "test": true,
+                "credit_card": {"last_4": "1006", "brand": "visa"}
+            }
+        })))
+        .expect(1)
+        .mount(&server)
+        .await;
+
+    let c = client(&server);
+    let t = c
+        .charge_saved_card(ChargeRequest {
+            amount: 700,
+            currency: "USD".into(),
+            description: "Recurring charge".into(),
+            tracking_id: Some("order-7000".into()),
+            expired_at: None,
+            duplicate_check: None,
+            dynamic_billing_descriptor: None,
+            language: None,
+            notification_url: None,
+            verification_url: None,
+            return_url: None,
+            test: Some(true),
+            force_three_d_secure_verification: None,
+            credit_card: ChargeCreditCard {
+                number: None,
+                verification_value: None,
+                holder: None,
+                exp_month: None,
+                exp_year: None,
+                token: Some("tok_123".into()),
+                skip_three_d_secure_verification: None,
+            },
+            customer: None,
+            additional_data: None,
+        })
+        .await
+        .expect("charge should succeed");
+    assert_eq!(t.uid, "1-310b0da80b");
+    assert_eq!(t.status.as_deref(), Some("successful"));
 }

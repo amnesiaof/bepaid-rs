@@ -8,9 +8,10 @@ use crate::client::BepaidClient;
 use crate::error::BepaidError;
 use crate::types::{
     AuthorizationEnvelope, AuthorizationRequest, AuthorizationResponse, CaptureEnvelope,
-    CaptureRequest, CaptureResponse, PaymentRequest, PaymentResponse, PayoutEnvelope,
-    PayoutRequest, PayoutResponse, RefundEnvelope, RefundRequest, RefundResponse, Transaction,
-    TransactionEnvelope, TransactionEnvelopeFull, VoidEnvelope, VoidRequest, VoidResponse,
+    CaptureRequest, CaptureResponse, ChargeRequest, PaymentRequest, PaymentResponse,
+    PayoutEnvelope, PayoutRequest, PayoutResponse, RefundEnvelope, RefundRequest, RefundResponse,
+    Transaction, TransactionEnvelope, TransactionEnvelopeFull, VoidEnvelope, VoidRequest,
+    VoidResponse,
 };
 
 #[derive(serde::Serialize)]
@@ -182,6 +183,64 @@ impl BepaidClient {
             .request_json(
                 Method::POST,
                 &self.gateway("/transactions/payouts"),
+                Some(&RequestEnvelope { request: req }),
+                Some("3"),
+            )
+            .await?;
+        Ok(envelope.transaction)
+    }
+
+    /// Charge a previously tokenized card (oneclick / recurring).
+    ///
+    /// Takes a `credit_card.token` from a previous tokenization instead of card
+    /// details.  When 3-D Secure applies, `redirect_url` in the response points
+    /// to the customer verification page.
+    ///
+    /// # Example
+    ///
+    /// ```no_run
+    /// use bepaid::BepaidClient;
+    /// use bepaid::types::{ChargeCreditCard, ChargeRequest};
+    ///
+    /// #[tokio::main]
+    /// async fn main() -> Result<(), bepaid::BepaidError> {
+    ///     let client = BepaidClient::new("shop_id", "secret_key");
+    ///     let request = ChargeRequest {
+    ///         amount: 700,
+    ///         currency: "USD".to_owned(),
+    ///         description: "Recurring charge".to_owned(),
+    ///         tracking_id: Some("sub-123".to_owned()),
+    ///         expired_at: None,
+    ///         duplicate_check: None,
+    ///         dynamic_billing_descriptor: None,
+    ///         language: None,
+    ///         notification_url: None,
+    ///         verification_url: None,
+    ///         return_url: None,
+    ///         test: Some(true),
+    ///         force_three_d_secure_verification: None,
+    ///         credit_card: ChargeCreditCard {
+    ///             number: None,
+    ///             verification_value: None,
+    ///             holder: None,
+    ///             exp_month: None,
+    ///             exp_year: None,
+    ///             token: Some("13dded21-9b5e-4a18-91d2-9c24944c57d9".to_owned()),
+    ///             skip_three_d_secure_verification: None,
+    ///         },
+    ///         customer: None,
+    ///         additional_data: None,
+    ///     };
+    ///     let charge = client.charge_saved_card(request).await?;
+    ///     println!("uid: {}", charge.uid);
+    ///     Ok(())
+    /// }
+    /// ```
+    pub async fn charge_saved_card(&self, req: ChargeRequest) -> Result<Transaction, BepaidError> {
+        let envelope: TransactionEnvelopeFull = self
+            .request_json(
+                Method::POST,
+                &self.gateway("/services/credit_cards/charges"),
                 Some(&RequestEnvelope { request: req }),
                 Some("3"),
             )
