@@ -19,7 +19,7 @@ impl BepaidClient {
             Method::POST,
             &self.gateway("/credit_cards"),
             Some(&RequestEnvelope { request: req }),
-            true,
+            Some("3"),
         )
         .await
     }

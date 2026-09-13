@@ -16,7 +16,7 @@ impl BepaidClient {
         &self,
         req: CustomerRecord,
     ) -> Result<CustomerRecord, BepaidError> {
-        self.request_json(Method::POST, &self.api("/customers"), Some(&req), false)
+        self.request_json(Method::POST, &self.api("/customers"), Some(&req), None)
             .await
     }
 
@@ -26,20 +26,20 @@ impl BepaidClient {
             Method::GET,
             &self.api(&format!("/customers/{id}")),
             None::<&u8>,
-            false,
+            None,
         )
         .await
     }
 
     /// List all customers.
     pub async fn list_customers(&self) -> Result<Vec<CustomerRecord>, BepaidError> {
-        self.request_json(Method::GET, &self.api("/customers"), None::<&u8>, false)
+        self.request_json(Method::GET, &self.api("/customers"), None::<&u8>, None)
             .await
     }
 
     /// Create a subscription plan.
     pub async fn create_plan(&self, req: PlanItem) -> Result<PlanItem, BepaidError> {
-        self.request_json(Method::POST, &self.api("/plans"), Some(&req), false)
+        self.request_json(Method::POST, &self.api("/plans"), Some(&req), None)
             .await
     }
 
@@ -49,14 +49,14 @@ impl BepaidClient {
             Method::GET,
             &self.api(&format!("/plans/{id}")),
             None::<&u8>,
-            false,
+            None,
         )
         .await
     }
 
     /// List all plans.
     pub async fn list_plans(&self) -> Result<Vec<PlanItem>, BepaidError> {
-        self.request_json(Method::GET, &self.api("/plans"), None::<&u8>, false)
+        self.request_json(Method::GET, &self.api("/plans"), None::<&u8>, None)
             .await
     }
 
@@ -149,7 +149,7 @@ impl BepaidClient {
         &self,
         req: SubscriptionCreateRequest,
     ) -> Result<Subscription, BepaidError> {
-        self.request_json(Method::POST, &self.api("/subscriptions"), Some(&req), false)
+        self.request_json(Method::POST, &self.api("/subscriptions"), Some(&req), None)
             .await
     }
 
@@ -159,7 +159,7 @@ impl BepaidClient {
             Method::GET,
             &self.api(&format!("/subscriptions/{id}")),
             None::<&u8>,
-            false,
+            None,
         )
         .await
     }
@@ -174,7 +174,7 @@ impl BepaidClient {
             Method::POST,
             &self.api(&format!("/subscriptions/{id}/cancel")),
             Some(&req),
-            false,
+            None,
         )
         .await
     }

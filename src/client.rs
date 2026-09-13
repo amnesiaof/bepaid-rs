@@ -9,16 +9,19 @@ pub const DEFAULT_GATEWAY_URL: &str = "https://gateway.bepaid.by";
 pub const DEFAULT_CHECKOUT_URL: &str = "https://checkout.bepaid.by";
 /// Default base URL for the Direct/APM API.
 pub const DEFAULT_API_URL: &str = "https://api.bepaid.by";
+/// Default base URL for the Merchant API (reports, payout control).
+pub const DEFAULT_MERCHANT_URL: &str = "https://merchant.bepaid.by";
 
 /// Async client for the bePaid payment APIs.
 ///
-/// Holds the `shop_id`/`secret_key` credentials (HTTP Basic auth) and the three
-/// base URLs. Every operation method lives on this type; see the module docs.
+/// Holds the `shop_id`/`secret_key` credentials (HTTP Basic auth) and the base
+/// URLs. Every operation method lives on this type; see the module docs.
 pub struct BepaidClient {
     pub(crate) http: Client,
     pub(crate) gateway_url: String,
     pub(crate) checkout_url: String,
     pub(crate) api_url: String,
+    pub(crate) merchant_url: String,
     pub(crate) auth: String,
 }
 
@@ -39,6 +42,7 @@ impl BepaidClient {
             gateway_url: DEFAULT_GATEWAY_URL.to_owned(),
             checkout_url: DEFAULT_CHECKOUT_URL.to_owned(),
             api_url: DEFAULT_API_URL.to_owned(),
+            merchant_url: DEFAULT_MERCHANT_URL.to_owned(),
             auth,
         }
     }
@@ -50,6 +54,7 @@ impl BepaidClient {
         gateway_url: &str,
         checkout_url: &str,
         api_url: &str,
+        merchant_url: &str,
     ) -> Self {
         let credentials = format!("{shop_id}:{secret_key}");
         let auth = format!("Basic {}", STANDARD.encode(credentials));
@@ -58,6 +63,7 @@ impl BepaidClient {
             gateway_url: gateway_url.to_owned(),
             checkout_url: checkout_url.to_owned(),
             api_url: api_url.to_owned(),
+            merchant_url: merchant_url.to_owned(),
             auth,
         }
     }
@@ -74,12 +80,16 @@ impl BepaidClient {
         format!("{}{path}", self.api_url)
     }
 
+    pub(crate) fn merchant(&self, path: &str) -> String {
+        format!("{}{path}", self.merchant_url)
+    }
+
     pub(crate) async fn request_json<T: serde::de::DeserializeOwned>(
         &self,
         method: reqwest::Method,
         url: &str,
         body: Option<&impl serde::Serialize>,
-        v3: bool,
+        api_version: Option<&str>,
     ) -> Result<T, BepaidError> {
         let mut builder = self
             .http
@@ -87,8 +97,8 @@ impl BepaidClient {
             .header("Authorization", &self.auth)
             .header("Content-Type", "application/json")
             .header("Accept", "application/json");
-        if v3 {
-            builder = builder.header("X-API-Version", "3");
+        if let Some(v) = api_version {
+            builder = builder.header("X-API-Version", v);
         }
         if let Some(b) = body {
             builder = builder.json(b);

@@ -8,9 +8,9 @@ use crate::client::BepaidClient;
 use crate::error::BepaidError;
 use crate::types::{
     AuthorizationEnvelope, AuthorizationRequest, AuthorizationResponse, CaptureEnvelope,
-    CaptureRequest, CaptureResponse, PaymentRequest, PaymentResponse, RefundEnvelope,
-    RefundRequest, RefundResponse, Transaction, TransactionEnvelope, TransactionEnvelopeFull,
-    VoidEnvelope, VoidRequest, VoidResponse,
+    CaptureRequest, CaptureResponse, PaymentRequest, PaymentResponse, PayoutEnvelope,
+    PayoutRequest, PayoutResponse, RefundEnvelope, RefundRequest, RefundResponse, Transaction,
+    TransactionEnvelope, TransactionEnvelopeFull, VoidEnvelope, VoidRequest, VoidResponse,
 };
 
 #[derive(serde::Serialize)]
@@ -65,7 +65,7 @@ impl BepaidClient {
                 Method::POST,
                 &self.gateway("/transactions/payments"),
                 Some(&RequestEnvelope { request: req }),
-                true,
+                Some("3"),
             )
             .await?;
         Ok(envelope.transaction)
@@ -118,7 +118,7 @@ impl BepaidClient {
                 Method::POST,
                 &self.gateway("/transactions/authorizations"),
                 Some(&RequestEnvelope { request: req }),
-                true,
+                Some("3"),
             )
             .await?;
         Ok(envelope.transaction)
@@ -131,7 +131,7 @@ impl BepaidClient {
                 Method::POST,
                 &self.gateway("/transactions/captures"),
                 Some(&RequestEnvelope { request: req }),
-                true,
+                Some("3"),
             )
             .await?;
         Ok(envelope.transaction)
@@ -144,7 +144,7 @@ impl BepaidClient {
                 Method::POST,
                 &self.gateway("/transactions/voids"),
                 Some(&RequestEnvelope { request: req }),
-                true,
+                Some("3"),
             )
             .await?;
         Ok(envelope.transaction)
@@ -157,7 +157,7 @@ impl BepaidClient {
                 Method::POST,
                 &self.gateway("/transactions/refunds"),
                 Some(&RequestEnvelope { request: req }),
-                true,
+                Some("3"),
             )
             .await?;
         Ok(envelope.transaction)
@@ -170,7 +170,20 @@ impl BepaidClient {
                 Method::GET,
                 &self.gateway(&format!("/transactions/{uid}")),
                 None::<&u8>,
-                true,
+                Some("3"),
+            )
+            .await?;
+        Ok(envelope.transaction)
+    }
+
+    /// Create a card payout from the merchant balance.
+    pub async fn create_payout(&self, req: PayoutRequest) -> Result<PayoutResponse, BepaidError> {
+        let envelope: PayoutEnvelope = self
+            .request_json(
+                Method::POST,
+                &self.gateway("/transactions/payouts"),
+                Some(&RequestEnvelope { request: req }),
+                Some("3"),
             )
             .await?;
         Ok(envelope.transaction)

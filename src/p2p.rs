@@ -60,7 +60,7 @@ impl BepaidClient {
                 Method::POST,
                 &self.gateway("/transactions/p2ps"),
                 Some(&RequestEnvelope { request: req }),
-                true,
+                Some("3"),
             )
             .await?;
         Ok(envelope.transaction)

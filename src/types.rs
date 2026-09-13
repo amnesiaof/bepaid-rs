@@ -1475,3 +1475,385 @@ pub struct WebhookTransaction {
     /// Additional data.
     pub additional_data: Option<serde_json::Value>,
 }
+
+// ── Payout ────────────────────────────────────────────────────────────────────
+
+/// Document data for payouts, e.g. `{"type": "PASSPORT"}`.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct PayoutDocument {
+    /// Document type, e.g. `PASSPORT`.
+    #[serde(rename = "type", skip_serializing_if = "Option::is_none")]
+    pub doc_type: Option<String>,
+    /// Issuing authority.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub issuer: Option<String>,
+    /// Document series.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub series: Option<String>,
+    /// Document number.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub number: Option<String>,
+    /// Issue date.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub issued_at: Option<String>,
+    /// Expiry date.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub valid_until: Option<String>,
+}
+
+/// Additional data of a payout.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct PayoutAdditionalData {
+    /// Recipient document.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub document: Option<PayoutDocument>,
+}
+
+/// Card payout destination. Card details are sent to bePaid, the merchant
+/// should prefer the tokenized flow where available.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct PayoutCreditCard {
+    /// Card number (PAN).
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub number: Option<String>,
+    /// Cardholder name.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub holder: Option<String>,
+    /// Expiration month as `MM` string.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub exp_month: Option<String>,
+    /// Expiration year as `YYYY` string.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub exp_year: Option<String>,
+}
+
+/// Create a card payout (push money out of the merchant balance).
+#[derive(Debug, Clone, Serialize)]
+pub struct PayoutRequest {
+    /// `true` to run in test mode.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub test: Option<bool>,
+    /// Amount in minor units.
+    pub amount: i64,
+    /// ISO 4217 currency code.
+    pub currency: String,
+    /// Free-form description.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub description: Option<String>,
+    /// Merchant tracking id.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub tracking_id: Option<String>,
+    /// Payee identification (ip/email/birth_date required).
+    pub recipient: Customer,
+    /// Payer identification (ip/email/birth_date required).
+    pub sender: Customer,
+    /// Recipient billing address.
+    pub recipient_billing_address: BillingAddress,
+    /// Payer billing address.
+    pub sender_billing_address: BillingAddress,
+    /// Destination card details.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub recipient_credit_card: Option<PayoutCreditCard>,
+    /// Additional data.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub additional_data: Option<PayoutAdditionalData>,
+}
+
+/// Payout execution details.
+#[derive(Debug, Clone, Deserialize)]
+pub struct Payout {
+    /// Payout status.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub status: Option<String>,
+    /// bePaid gateway id.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub gateway_id: Option<i64>,
+    /// Reference id.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub ref_id: Option<String>,
+    /// Bank code.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub bank_code: Option<String>,
+    /// Retrieval reference number.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub rrn: Option<String>,
+}
+
+/// Response of a payout.
+#[derive(Debug, Clone, Deserialize)]
+pub struct PayoutResponse {
+    /// Transaction uid.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub uid: Option<String>,
+    /// Transaction type (`payout`).
+    #[serde(rename = "type", skip_serializing_if = "Option::is_none")]
+    pub tx_type: Option<String>,
+    /// Status, e.g. `successful`, `pending`, `failed`.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub status: Option<String>,
+    /// Amount in minor units.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub amount: Option<i64>,
+    /// ISO 4217 currency code.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub currency: Option<String>,
+    /// Free-form description.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub description: Option<String>,
+    /// Creation timestamp.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub created_at: Option<String>,
+    /// Last update timestamp.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub updated_at: Option<String>,
+    /// Payment method type.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub method_type: Option<String>,
+    /// Receipt URL.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub receipt_url: Option<String>,
+    /// Human-readable message.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub message: Option<String>,
+    /// Merchant tracking id.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub tracking_id: Option<String>,
+    /// Whether it was a test transaction.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub test: Option<bool>,
+    /// Payout execution details.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub payout: Option<Payout>,
+    /// Customer data.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub customer: Option<Customer>,
+    /// Billing address.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub billing_address: Option<BillingAddress>,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+pub(crate) struct PayoutEnvelope {
+    pub transaction: PayoutResponse,
+}
+
+// ── APM balance query ─────────────────────────────────────────────────────────
+
+/// Query the balance of an APM gateway account. Sent without a `request`
+/// wrapper.
+#[derive(Debug, Clone, Serialize)]
+pub struct BalanceRequest {
+    /// bePaid gateway id.
+    pub gateway_id: i64,
+    /// Account number to query.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub account: Option<String>,
+    /// ISO 4217 currency code.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub currency: Option<String>,
+}
+
+/// Balance of an APM account. Returned without an envelope.
+#[derive(Debug, Clone, Deserialize)]
+pub struct BalanceResponse {
+    /// Response code, e.g. `S.0000`.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub code: Option<String>,
+    /// Status, e.g. `Successful`.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub status: Option<String>,
+    /// Raw status message.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub message: Option<String>,
+    /// Human-readable message.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub friendly_message: Option<String>,
+    /// bePaid gateway id.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub gateway_id: Option<i64>,
+    /// Queried account.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub account: Option<String>,
+    /// Balance amount in minor units.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub amount: Option<i64>,
+    /// ISO 4217 currency code.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub currency: Option<String>,
+    /// Provider-specific balance data.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub provider_info: Option<serde_json::Value>,
+}
+
+// ── Merchant reports ──────────────────────────────────────────────────────────
+
+/// Filter for the report list (API v2). Uses a single `date`.
+#[derive(Debug, Clone, Serialize)]
+pub struct ReportParams {
+    /// Date basis: `created_at`, `paid_at` or `settled_at`.
+    pub date_type: String,
+    /// Report date `YYYY-MM-DD`.
+    pub date: String,
+    /// Transaction status: `all`, `successful`, `failed`, `pending`,
+    /// `incomplete`.
+    pub status: String,
+    /// Payment method type: `credit_card`, `alternative` or `erip`.
+    pub payment_method_type: String,
+    /// IANA time zone, e.g. `Europe/London`.
+    pub time_zone: String,
+}
+
+/// Filter for the report count (API v3). Uses a `from`/`to` range.
+#[derive(Debug, Clone, Serialize)]
+pub struct ReportCountParams {
+    /// Date basis: `created_at`, `paid_at` or `settled_at`.
+    pub date_type: String,
+    /// Range start `YYYY-MM-DD hh:mm:ss`.
+    pub from: String,
+    /// Range end `YYYY-MM-DD hh:mm:ss`.
+    pub to: String,
+    /// Transaction status: `all`, `successful`, `failed`, `pending`,
+    /// `incomplete`.
+    pub status: String,
+    /// Payment method type: `credit_card`, `alternative` or `erip`.
+    pub payment_method_type: String,
+    /// IANA time zone, e.g. `Europe/London`.
+    pub time_zone: String,
+}
+
+/// One report transaction. Shape varies with `payment_method_type`; the
+/// method-specific objects are kept as raw JSON.
+#[derive(Debug, Clone, Deserialize)]
+pub struct ReportTransaction {
+    /// Row id, used for pagination.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub id: Option<i64>,
+    /// Transaction uid.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub uid: Option<String>,
+    /// Transaction type, e.g. `authorization`, `p2p`.
+    #[serde(rename = "type", skip_serializing_if = "Option::is_none")]
+    pub tx_type: Option<String>,
+    /// Payment method type: `credit_card`, `alternative` or `erip`.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub payment_method_type: Option<String>,
+    /// Status.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub status: Option<String>,
+    /// Human-readable message.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub message: Option<String>,
+    /// Amount in minor units.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub amount: Option<i64>,
+    /// Discount rate, percent.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub discount_rate: Option<f64>,
+    /// Transaction rate, percent.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub transaction_rate: Option<f64>,
+    /// Transaction fee in minor units.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub transaction_fee: Option<f64>,
+    /// Amount paid to the merchant.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub pay_to_merchant: Option<f64>,
+    /// Whether it was a test transaction.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub test: Option<bool>,
+    /// ISO 4217 currency code.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub currency: Option<String>,
+    /// Free-form description.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub description: Option<String>,
+    /// Merchant tracking id.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub tracking_id: Option<String>,
+    /// Order id.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub order_id: Option<i64>,
+    /// Creation timestamp.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub created_at: Option<String>,
+    /// Payment timestamp.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub paid_at: Option<String>,
+    /// Settlement timestamp.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub settled_at: Option<String>,
+    /// Manual correction timestamp.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub manually_corrected_at: Option<String>,
+    /// Billing address.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub billing_address: Option<BillingAddress>,
+    /// Customer data.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub customer: Option<Customer>,
+    /// Card details (credit card transactions).
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub credit_card: Option<serde_json::Value>,
+    /// Method-specific payment data.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub payment: Option<serde_json::Value>,
+    /// 3-D Secure verification data.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub three_d_secure_verification: Option<serde_json::Value>,
+    /// Additional data.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub additional_data: Option<serde_json::Value>,
+}
+
+/// Body of the report list request (API v2).
+#[derive(Debug, Clone, Serialize)]
+pub struct ReportListRequest {
+    /// Report filters.
+    pub report_params: ReportParams,
+}
+
+/// Response of the report list (API v2).
+#[derive(Debug, Clone, Deserialize)]
+pub struct ReportListResponse {
+    /// Report transactions.
+    pub transactions: Vec<ReportTransaction>,
+    /// Transaction count.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub count: Option<i64>,
+}
+
+/// Body of the report count request (API v3).
+#[derive(Debug, Clone, Serialize)]
+pub struct ReportCountRequest {
+    /// Report filters.
+    pub report_params: ReportCountParams,
+}
+
+/// Count result of the report count endpoint.
+#[derive(Debug, Clone, Deserialize)]
+pub struct ReportCountResult {
+    /// Transaction count.
+    pub count: i64,
+}
+
+/// Response of the report count (API v3). The count sits in
+/// `transactions.count`.
+#[derive(Debug, Clone, Deserialize)]
+pub struct ReportCountResponse {
+    /// Count result.
+    pub transactions: ReportCountResult,
+}
+
+/// Balance of a payout channel (payout control).
+#[derive(Debug, Clone, Deserialize)]
+pub struct ChannelBalance {
+    /// bePaid gateway id.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub gateway_id: Option<i64>,
+    /// ISO 4217 currency code.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub currency: Option<String>,
+    /// Balance amount in minor units.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub amount: Option<i64>,
+}

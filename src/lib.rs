@@ -5,10 +5,12 @@
 //!   refunds and P2P transfers against `https://gateway.bepaid.by`.
 //! - **Checkout** ([`checkout`]) — hosted payment pages and Apple Pay validation against
 //!   `https://checkout.bepaid.by`.
-//! - **Direct** ([`direct`]) — alternative payment methods (APM) and their confirmations
-//!   against `https://api.bepaid.by`.
+//! - **Direct** ([`direct`]) — alternative payment methods (APM), their confirmations
+//!   and balance queries against `https://api.bepaid.by`.
 //! - **Subscriptions** ([`subscriptions`]) — customers, plans and recurring subscriptions.
 //! - **Tokens** ([`tokens`]) — PCI-DSS-certified card tokenization.
+//! - **Merchant** ([`merchant`]) — reports and payout control against
+//!   `https://merchant.bepaid.by`.
 //!
 //! A single [`BepaidClient`] holds your HTTP Basic credentials and exposes every operation.
 //!
@@ -51,6 +53,8 @@ pub mod direct;
 pub mod error;
 /// Card payments, authorizations, captures, voids, refunds.
 pub mod gateway;
+/// Merchant reports and payout control.
+pub mod merchant;
 /// Peer-to-peer card transfers.
 pub mod p2p;
 /// Customers, plans and recurring subscriptions.
@@ -62,5 +66,7 @@ pub mod types;
 /// Webhook payload parsing and notification verification.
 pub mod webhook;
 
-pub use client::{BepaidClient, DEFAULT_API_URL, DEFAULT_CHECKOUT_URL, DEFAULT_GATEWAY_URL};
+pub use client::{
+    BepaidClient, DEFAULT_API_URL, DEFAULT_CHECKOUT_URL, DEFAULT_GATEWAY_URL, DEFAULT_MERCHANT_URL,
+};
 pub use error::{ApiError, BepaidError};

@@ -30,7 +30,7 @@ impl BepaidClient {
                 Method::POST,
                 &self.checkout("/ctp/api/checkouts"),
                 Some(&CheckoutEnvelopeReq { checkout: req }),
-                false,
+                None,
             )
             .await?;
         Ok(envelope.checkout)
@@ -43,7 +43,7 @@ impl BepaidClient {
                 Method::GET,
                 &self.checkout(&format!("/ctp/api/checkouts/{token}")),
                 None::<&u8>,
-                false,
+                None,
             )
             .await?;
         Ok(envelope.checkout)
@@ -63,7 +63,7 @@ impl BepaidClient {
                 token,
                 context: "merchant",
             }),
-            false,
+            None,
         )
         .await
     }

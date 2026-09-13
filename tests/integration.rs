@@ -1,9 +1,10 @@
 use bepaid::{
     BepaidClient, BepaidError,
     types::{
-        ApmConfirmRequest, ApmPaymentRequest, AuthorizationRequest, CancelSubscriptionRequest,
-        CaptureRequest, CheckoutRequest, CreateTokenRequest, CustomerRecord, P2pRequest,
-        PaymentRequest, RefundRequest, SubscriptionCreateRequest, VoidRequest,
+        ApmConfirmRequest, ApmPaymentRequest, AuthorizationRequest, BalanceRequest,
+        CancelSubscriptionRequest, CaptureRequest, CheckoutRequest, CreateTokenRequest,
+        CustomerRecord, P2pRequest, PaymentRequest, PayoutRequest, RefundRequest,
+        ReportListRequest, ReportParams, SubscriptionCreateRequest, VoidRequest,
     },
     webhook::{parse_subscription_webhook, parse_webhook, verify_webhook_auth},
 };
@@ -18,7 +19,7 @@ const AUTH: &str = "Basic MzYzOjQ1NDU0ZTA4MzQzNGFhMzdyZmRmZA==";
 
 fn client(server: &MockServer) -> BepaidClient {
     let base = server.uri();
-    BepaidClient::with_urls(SHOP_ID, SECRET, &base, &base, &base)
+    BepaidClient::with_urls(SHOP_ID, SECRET, &base, &base, &base, &base)
 }
 
 #[tokio::test]
@@ -811,4 +812,220 @@ async fn subscription_webhook_parses() {
     assert_eq!(s.id.as_deref(), Some("sbs_962f994ca74420d3"));
     assert_eq!(s.state.as_deref(), Some("trial"));
     assert_eq!(s.event.as_deref(), Some("created.subscription"));
+}
+
+#[tokio::test]
+async fn payout_happy_path() {
+    let server = MockServer::start().await;
+    Mock::given(method("POST"))
+        .and(path("/transactions/payouts"))
+        .and(wiremock::matchers::header("x-api-version", "3"))
+        .and(wiremock::matchers::header("authorization", AUTH))
+        .respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({
+            "transaction": {
+                "uid": "1-310b0da80b",
+                "type": "payout",
+                "status": "successful",
+                "amount": 100,
+                "currency": "USD",
+                "description": "Payout",
+                "test": true,
+                "tracking_id": "payout-1",
+                "payout": {"status": "successful", "gateway_id": 1345, "rrn": "1234"},
+                "customer": {"ip": "127.0.0.1", "email": "john@example.com"}
+            }
+        })))
+        .expect(1)
+        .mount(&server)
+        .await;
+
+    let c = client(&server);
+    let p = c
+        .create_payout(PayoutRequest {
+            test: Some(true),
+            amount: 100,
+            currency: "USD".into(),
+            description: Some("Payout".into()),
+            tracking_id: Some("payout-1".into()),
+            recipient: bepaid::types::Customer {
+                first_name: None,
+                last_name: None,
+                ip: Some("127.0.0.1".into()),
+                email: Some("john@example.com".into()),
+                device_id: None,
+                birth_date: Some("1990-10-20".into()),
+            },
+            sender: bepaid::types::Customer {
+                first_name: None,
+                last_name: None,
+                ip: Some("127.0.0.1".into()),
+                email: Some("john@example.com".into()),
+                device_id: None,
+                birth_date: Some("1990-10-20".into()),
+            },
+            recipient_billing_address: bepaid::types::BillingAddress {
+                first_name: None,
+                last_name: None,
+                country: Some("US".into()),
+                city: Some("Denver".into()),
+                state: Some("CO".into()),
+                zip: Some("96002".into()),
+                address: Some("1st Street".into()),
+                phone: None,
+            },
+            sender_billing_address: bepaid::types::BillingAddress {
+                first_name: None,
+                last_name: None,
+                country: Some("US".into()),
+                city: Some("Denver".into()),
+                state: Some("CO".into()),
+                zip: Some("96002".into()),
+                address: Some("1st Street".into()),
+                phone: None,
+            },
+            recipient_credit_card: None,
+            additional_data: None,
+        })
+        .await
+        .expect("payout should succeed");
+
+    assert_eq!(p.status.as_deref(), Some("successful"));
+    assert_eq!(p.tx_type.as_deref(), Some("payout"));
+    assert_eq!(p.payout.as_ref().unwrap().rrn.as_deref(), Some("1234"));
+}
+
+#[tokio::test]
+async fn apm_balance_happy_path() {
+    let server = MockServer::start().await;
+    Mock::given(method("POST"))
+        .and(path("/beyag/balance"))
+        .and(wiremock::matchers::header("authorization", AUTH))
+        .respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({
+            "status": "Successful",
+            "code": "S.0000",
+            "friendly_message": "Successfully processed",
+            "gateway_id": 1234,
+            "account": "40701810842020395221",
+            "amount": 1290092162,
+            "currency": "USD",
+            "provider_info": {"BankCode": 33}
+        })))
+        .expect(1)
+        .mount(&server)
+        .await;
+
+    let c = client(&server);
+    let b = c
+        .get_balance(BalanceRequest {
+            gateway_id: 1234,
+            account: Some("40701810842020395221".into()),
+            currency: Some("USD".into()),
+        })
+        .await
+        .expect("balance should succeed");
+
+    assert_eq!(b.status.as_deref(), Some("Successful"));
+    assert_eq!(b.amount, Some(1290092162));
+}
+
+#[tokio::test]
+async fn merchant_reports_list_happy_path() {
+    let server = MockServer::start().await;
+    Mock::given(method("POST"))
+        .and(path("/api/reports"))
+        .and(wiremock::matchers::header("x-api-version", "2"))
+        .and(wiremock::matchers::header("authorization", AUTH))
+        .respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({
+            "transactions": [{
+                "shop": {"id": 1},
+                "uid": "20527-b7ea8c95f4",
+                "id": 28859,
+                "payment_method_type": "credit_card",
+                "type": "authorization",
+                "status": "failed",
+                "amount": 1000,
+                "currency": "USD",
+                "test": false,
+                "created_at": "2022-01-27T13:48:51Z",
+                "credit_card": {"brand": "visa", "last_4": "1006"}
+            }],
+            "count": 1
+        })))
+        .expect(1)
+        .mount(&server)
+        .await;
+
+    let c = client(&server);
+    let r = c
+        .get_reports(ReportListRequest {
+            report_params: ReportParams {
+                date_type: "created_at".into(),
+                date: "2022-01-27".into(),
+                status: "failed".into(),
+                payment_method_type: "credit_card".into(),
+                time_zone: "Europe/London".into(),
+            },
+        })
+        .await
+        .expect("reports should succeed");
+
+    assert_eq!(r.count, Some(1));
+    assert_eq!(r.transactions[0].uid.as_deref(), Some("20527-b7ea8c95f4"));
+    assert_eq!(r.transactions[0].status.as_deref(), Some("failed"));
+}
+
+#[tokio::test]
+async fn merchant_report_count_happy_path() {
+    let server = MockServer::start().await;
+    Mock::given(method("POST"))
+        .and(path("/api/reports/count"))
+        .and(wiremock::matchers::header("x-api-version", "3"))
+        .and(wiremock::matchers::header("authorization", AUTH))
+        .respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({
+            "transactions": {"count": 2}
+        })))
+        .expect(1)
+        .mount(&server)
+        .await;
+
+    let c = client(&server);
+    let r = c
+        .get_report_count(bepaid::types::ReportCountRequest {
+            report_params: bepaid::types::ReportCountParams {
+                date_type: "created_at".into(),
+                from: "2022-01-25 00:00:00".into(),
+                to: "2022-01-27 23:59:59".into(),
+                status: "incomplete".into(),
+                payment_method_type: "credit_card".into(),
+                time_zone: "Etc/UTC".into(),
+            },
+        })
+        .await
+        .expect("report count should succeed");
+
+    assert_eq!(r.transactions.count, 2);
+}
+
+#[tokio::test]
+async fn merchant_channel_balances_happy_path() {
+    let server = MockServer::start().await;
+    Mock::given(method("GET"))
+        .and(path("/shop/channel_balances/"))
+        .and(wiremock::matchers::header("authorization", AUTH))
+        .respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!([
+            {"gateway_id": 3405, "currency": "USD", "amount": 100}
+        ])))
+        .expect(1)
+        .mount(&server)
+        .await;
+
+    let c = client(&server);
+    let bals = c
+        .get_channel_balances(3405, Some("USD"))
+        .await
+        .expect("channel balances should succeed");
+
+    assert_eq!(bals.len(), 1);
+    assert_eq!(bals[0].gateway_id, Some(3405));
+    assert_eq!(bals[0].amount, Some(100));
 }

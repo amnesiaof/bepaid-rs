@@ -9,6 +9,7 @@ use crate::error::BepaidError;
 use crate::types::{
     ApmConfirmEnvelope, ApmConfirmRequest, ApmConfirmResponse, ApmPaymentEnvelope,
     ApmPaymentRequest, ApmPaymentResponse, ApmRefundEnvelope, ApmRefundRequest, ApmRefundResponse,
+    BalanceRequest, BalanceResponse,
 };
 
 #[derive(serde::Serialize)]
@@ -28,7 +29,7 @@ impl BepaidClient {
                 Method::POST,
                 &self.api("/beyag/transactions/payments"),
                 Some(&RequestEnvelope { request: req }),
-                false,
+                None,
             )
             .await?;
         Ok(envelope.transaction)
@@ -44,7 +45,7 @@ impl BepaidClient {
                 Method::POST,
                 &self.api("/beyag/transactions/refunds"),
                 Some(&RequestEnvelope { request: req }),
-                false,
+                None,
             )
             .await?;
         Ok(envelope.transaction)
@@ -69,7 +70,7 @@ impl BepaidClient {
                 Method::POST,
                 &self.api("/beyag/refunds"),
                 Some(&RequestEnvelope { request: req }),
-                false,
+                None,
             )
             .await?;
         Ok(envelope.transaction)
@@ -86,9 +87,15 @@ impl BepaidClient {
                 Method::POST,
                 &self.api(&format!("/beyag/transactions/{uid}/confirm")),
                 Some(&req),
-                false,
+                None,
             )
             .await?;
         Ok(envelope.response)
+    }
+
+    /// Query the balance of an APM gateway account.
+    pub async fn get_balance(&self, req: BalanceRequest) -> Result<BalanceResponse, BepaidError> {
+        self.request_json(Method::POST, &self.api("/beyag/balance"), Some(&req), None)
+            .await
     }
 }
