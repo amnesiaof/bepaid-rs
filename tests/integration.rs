@@ -7,7 +7,9 @@ use bepaid::{
         ProductUpdateRequest, RefundRequest, ReportListRequest, ReportParams,
         SubscriptionCreateRequest, VoidRequest,
     },
-    webhook::{parse_subscription_webhook, parse_webhook, verify_webhook_auth},
+    webhook::{
+        parse_subscription_webhook, parse_webhook, verify_webhook_auth, verify_webhook_signature,
+    },
 };
 use wiremock::{
     Mock, MockServer, ResponseTemplate,
@@ -564,6 +566,32 @@ async fn webhook_verify_and_parse() {
     assert_eq!(n.transaction.uid, "566fd40a-2379-46d6-aecd-67779afcf883");
     assert_eq!(n.transaction.status, "pending");
     assert_eq!(n.transaction.tx_type, "payment");
+}
+
+#[tokio::test]
+async fn webhook_signature_roundtrip() {
+    use base64::{Engine as _, engine::general_purpose::STANDARD};
+    use rsa::RsaPrivateKey;
+    use rsa::pkcs1v15::SigningKey;
+    use rsa::pkcs8::EncodePublicKey;
+    use rsa::rand_core::OsRng;
+    use rsa::sha2::Sha256;
+    use rsa::signature::{SignatureEncoding, Signer};
+
+    let mut rng = OsRng;
+    let private_key = RsaPrivateKey::new(&mut rng, 2048).expect("keygen");
+    let public_key_pem = private_key
+        .to_public_key()
+        .to_public_key_pem(rsa::pkcs8::LineEnding::LF)
+        .expect("pem");
+    let body = br#"{"transaction":{"uid":"123"}}"#;
+    let signature = SigningKey::<Sha256>::new(private_key).sign(body).to_bytes();
+    let signature = STANDARD.encode(signature);
+
+    assert!(verify_webhook_signature(&public_key_pem, &signature, body).expect("verify ok"));
+    assert!(
+        !verify_webhook_signature(&public_key_pem, &signature, b"tampered").expect("verify ok")
+    );
 }
 
 #[tokio::test]
@@ -1290,4 +1318,28 @@ async fn update_product_happy_path() {
     )
     .await
     .expect("update should succeed");
+}
+
+#[tokio::test]
+async fn plan_payment_link_happy_path() {
+    let server = MockServer::start().await;
+    Mock::given(method("GET"))
+        .and(path("/plans/pln_a134847c902551de/pay"))
+        .and(wiremock::matchers::header("authorization", AUTH))
+        .respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({
+            "redirect_url": "https://checkout.bepaid.by/pay?token=abc"
+        })))
+        .expect(1)
+        .mount(&server)
+        .await;
+
+    let c = client(&server);
+    let resp = c
+        .get_plan_payment_link("pln_a134847c902551de")
+        .await
+        .expect("link should succeed");
+    assert_eq!(
+        resp["redirect_url"],
+        "https://checkout.bepaid.by/pay?token=abc"
+    );
 }

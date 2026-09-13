@@ -11,6 +11,22 @@ use crate::types::{
 };
 
 impl BepaidClient {
+    /// Generate a payment link for a subscription plan, to redirect a customer
+    /// to. The response shape is not documented by bePaid, so it is returned
+    /// as raw JSON.
+    pub async fn get_plan_payment_link(
+        &self,
+        plan_id: &str,
+    ) -> Result<serde_json::Value, BepaidError> {
+        self.request_json(
+            Method::GET,
+            &self.api(&format!("/plans/{plan_id}/pay")),
+            None::<&u8>,
+            None,
+        )
+        .await
+    }
+
     /// Create a customer in the subscription service.
     pub async fn create_customer(
         &self,

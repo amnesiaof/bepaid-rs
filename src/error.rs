@@ -9,6 +9,12 @@ pub enum BepaidError {
     Http(reqwest::Error),
     /// Failed to parse a request or response body as JSON.
     Json(serde_json::Error),
+    /// Failed to base64-decode a webhook signature.
+    Base64(base64::DecodeError),
+    /// Failed to parse the RSA public key for webhook signature verification.
+    RsaKey(rsa::pkcs8::spki::Error),
+    /// RSA signature parsing/verification failed for a webhook notification.
+    RsaSignature(rsa::signature::Error),
 }
 
 /// Structured error returned by the bePaid API.
@@ -28,6 +34,9 @@ impl fmt::Display for BepaidError {
             Self::Api(e) => write!(f, "API error {}: {}", e.status, e.message),
             Self::Http(e) => write!(f, "HTTP error: {e}"),
             Self::Json(e) => write!(f, "JSON error: {e}"),
+            Self::Base64(e) => write!(f, "Base64 error: {e}"),
+            Self::RsaKey(e) => write!(f, "RSA key error: {e}"),
+            Self::RsaSignature(e) => write!(f, "RSA signature error: {e}"),
         }
     }
 }
