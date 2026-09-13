@@ -49,6 +49,59 @@ impl BepaidClient {
         Ok(envelope.checkout)
     }
 
+    /// Create a payment token for the payment page or widget.
+    ///
+    /// Response `redirect_url` sends the customer to the hosted payment
+    /// widget; with `auto_pay` and a card token the payment starts itself.
+    ///
+    /// # Example
+    ///
+    /// ```no_run
+    /// use bepaid::BepaidClient;
+    /// use bepaid::types::{CheckoutAdditionalData, CheckoutOrder, CheckoutRequest};
+    ///
+    /// #[tokio::main]
+    /// async fn main() -> Result<(), bepaid::BepaidError> {
+    ///     let client = BepaidClient::new("shop_id", "secret_key");
+    ///     let request = CheckoutRequest {
+    ///         test: Some(true),
+    ///         transaction_type: "payment".to_owned(),
+    ///         attempts: None,
+    ///         iframe: None,
+    ///         settings: None,
+    ///         payment_method: None,
+    ///         credit_card: None,
+    ///         order: CheckoutOrder {
+    ///             currency: "USD".to_owned(),
+    ///             amount: 100,
+    ///             description: Some("Widget order".to_owned()),
+    ///             tracking_id: None,
+    ///             additional_data: Some(CheckoutAdditionalData {
+    ///                 contract: Some(vec!["recurring".to_owned()]),
+    ///             }),
+    ///         },
+    ///         customer: None,
+    ///     };
+    ///     let token = client.create_payment_token(&request).await?;
+    ///     println!("redirect: {}", token.redirect_url.unwrap_or_default());
+    ///     Ok(())
+    /// }
+    /// ```
+    pub async fn create_payment_token(
+        &self,
+        req: &CheckoutRequest,
+    ) -> Result<CheckoutResponse, BepaidError> {
+        let envelope: CheckoutEnvelope = self
+            .request_json(
+                Method::POST,
+                &self.api("/payments/tokens"),
+                Some(&CheckoutEnvelopeReq { checkout: req }),
+                None,
+            )
+            .await?;
+        Ok(envelope.checkout)
+    }
+
     /// Validate Apple Pay merchant session.
     pub async fn validate_apple_pay(
         &self,

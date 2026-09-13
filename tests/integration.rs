@@ -369,6 +369,8 @@ async fn checkout_happy_path() {
                 currency: "USD".into(),
                 amount: 7000,
                 description: Some("Test".into()),
+                tracking_id: None,
+                additional_data: None,
             },
             customer: None,
         })
@@ -380,6 +382,53 @@ async fn checkout_happy_path() {
         t.redirect_url
             .unwrap()
             .contains("checkout.bepaid.by/widget/hpp.html")
+    );
+}
+
+#[tokio::test]
+async fn payment_token_happy_path() {
+    let server = MockServer::start().await;
+    Mock::given(method("POST"))
+        .and(path("/payments/tokens"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({
+            "checkout": {
+                "token": "3241e439f8c87d941d92621a4bdc030d",
+                "redirect_url": "https://checkout.bepaid.by/v2/checkout?token=3241e439f8c87d941d92621a4bdc030d"
+            }
+        })))
+        .expect(1)
+        .mount(&server)
+        .await;
+
+    let c = client(&server);
+    let t = c
+        .create_payment_token(&CheckoutRequest {
+            test: Some(true),
+            transaction_type: "payment".into(),
+            attempts: None,
+            iframe: None,
+            settings: None,
+            payment_method: None,
+            credit_card: None,
+            order: bepaid::types::CheckoutOrder {
+                currency: "USD".into(),
+                amount: 7000,
+                description: Some("Widget order".into()),
+                tracking_id: None,
+                additional_data: Some(bepaid::types::CheckoutAdditionalData {
+                    contract: Some(vec!["recurring".into()]),
+                }),
+            },
+            customer: None,
+        })
+        .await
+        .expect("token creation should succeed");
+
+    assert_eq!(t.token, "3241e439f8c87d941d92621a4bdc030d");
+    assert!(
+        t.redirect_url
+            .unwrap()
+            .contains("checkout.bepaid.by/v2/checkout")
     );
 }
 

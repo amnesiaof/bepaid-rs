@@ -776,6 +776,14 @@ pub struct CheckoutCreditCard {
     pub token: Option<String>,
 }
 
+/// Extra order data for a checkout.
+#[derive(Debug, Clone, Serialize)]
+pub struct CheckoutAdditionalData {
+    /// Contract types; include `recurring` to receive a card token back.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub contract: Option<Vec<String>>,
+}
+
 /// Order section of a checkout.
 #[derive(Debug, Clone, Serialize)]
 pub struct CheckoutOrder {
@@ -786,6 +794,12 @@ pub struct CheckoutOrder {
     /// Order description.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub description: Option<String>,
+    /// Order tracking/reference id.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub tracking_id: Option<String>,
+    /// Extra order data, e.g. `contract` for tokenization.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub additional_data: Option<CheckoutAdditionalData>,
 }
 
 /// Response of checkout creation: the hosted page and its token.
