@@ -9,7 +9,7 @@ the hosted Checkout API, and the Direct/APM API (alternative payment methods).
 
 ```toml
 [dependencies]
-bepaid = "0.3"
+bepaid = "0.4"
 ```
 
 Also needs a Tokio runtime (the client is async):

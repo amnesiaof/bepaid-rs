@@ -3,10 +3,17 @@ use reqwest::Client;
 
 use crate::error::{ApiError, BepaidError};
 
+/// Default base URL for the Gateway API (card payments).
 pub const DEFAULT_GATEWAY_URL: &str = "https://gateway.bepaid.by";
+/// Default base URL for the Checkout API (hosted payment pages).
 pub const DEFAULT_CHECKOUT_URL: &str = "https://checkout.bepaid.by";
+/// Default base URL for the Direct/APM API.
 pub const DEFAULT_API_URL: &str = "https://api.bepaid.by";
 
+/// Async client for the bePaid payment APIs.
+///
+/// Holds the `shop_id`/`secret_key` credentials (HTTP Basic auth) and the three
+/// base URLs. Every operation method lives on this type; see the module docs.
 pub struct BepaidClient {
     pub(crate) http: Client,
     pub(crate) gateway_url: String,
@@ -16,6 +23,14 @@ pub struct BepaidClient {
 }
 
 impl BepaidClient {
+    /// Create a client with the default production base URLs.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// use bepaid::BepaidClient;
+    /// let client = BepaidClient::new("shop_id", "secret_key");
+    /// ```
     pub fn new(shop_id: &str, secret_key: &str) -> Self {
         let credentials = format!("{shop_id}:{secret_key}");
         let auth = format!("Basic {}", STANDARD.encode(credentials));
@@ -28,6 +43,7 @@ impl BepaidClient {
         }
     }
 
+    /// Create a client with custom base URLs (e.g. a gateway emulator or tests).
     pub fn with_urls(
         shop_id: &str,
         secret_key: &str,

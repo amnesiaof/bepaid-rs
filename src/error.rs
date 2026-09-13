@@ -1,16 +1,24 @@
 use std::fmt;
 
+/// Error type returned by every client operation.
 #[derive(Debug)]
 pub enum BepaidError {
+    /// The API responded with a non-2xx status.
     Api(ApiError),
+    /// Transport-level failure (connection, timeout, TLS, …).
     Http(reqwest::Error),
+    /// Failed to parse a request or response body as JSON.
     Json(serde_json::Error),
 }
 
+/// Structured error returned by the bePaid API.
 #[derive(Debug)]
 pub struct ApiError {
+    /// HTTP status code of the failed response.
     pub status: u16,
+    /// Human-readable error message from the API body.
     pub message: String,
+    /// Per-field validation errors, when the API provides them.
     pub errors: Option<serde_json::Value>,
 }
 

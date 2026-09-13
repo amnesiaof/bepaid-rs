@@ -1,14 +1,65 @@
-//! bepaid — async client for the bePaid payment API (bepaid.by).
+//! Async client for the [bePaid payment API](https://docs.bepaid.by/ru/) (bepaid.by).
+//!
+//! Provides typed operations for the three bePaid APIs:
+//! - **Gateway** ([`gateway`]) — card payments, authorizations with 3DS, captures, voids,
+//!   refunds and P2P transfers against `https://gateway.bepaid.by`.
+//! - **Checkout** ([`checkout`]) — hosted payment pages and Apple Pay validation against
+//!   `https://checkout.bepaid.by`.
+//! - **Direct** ([`direct`]) — alternative payment methods (APM) and their confirmations
+//!   against `https://api.bepaid.by`.
+//! - **Subscriptions** ([`subscriptions`]) — customers, plans and recurring subscriptions.
+//! - **Tokens** ([`tokens`]) — PCI-DSS-certified card tokenization.
+//!
+//! A single [`BepaidClient`] holds your HTTP Basic credentials and exposes every operation.
+//!
+//! # Example
+//!
+//! ```no_run
+//! use bepaid::BepaidClient;
+//! use bepaid::types::PaymentRequest;
+//!
+//! #[tokio::main]
+//! async fn main() -> Result<(), bepaid::BepaidError> {
+//!     let client = BepaidClient::new("shop_id", "secret_key");
+//!     let request = PaymentRequest {
+//!         amount: "700".to_owned(), // minor units
+//!         currency: "BYN".to_owned(),
+//!         test: true,
+//!         description: "Test payment".to_owned(),
+//!         tracking_id: "order-123".to_owned(),
+//!         language: None,
+//!         notification_url: None,
+//!         billing_address: None,
+//!         credit_card: None,
+//!         customer: None,
+//!         additional_data: None,
+//!     };
+//!     let payment = client.create_payment(request).await?;
+//!     println!("uid: {}", payment.uid);
+//!     Ok(())
+//! }
+//! ```
+#![warn(missing_docs)]
 
+/// Hosted payment page and Apple Pay validation.
 pub mod checkout;
+/// HTTP client and the three base URLs.
 pub mod client;
+/// Alternative payment methods (APM) and their confirmations.
 pub mod direct;
+/// Error types returned by the whole crate.
 pub mod error;
+/// Card payments, authorizations, captures, voids, refunds.
 pub mod gateway;
+/// Peer-to-peer card transfers.
 pub mod p2p;
+/// Customers, plans and recurring subscriptions.
 pub mod subscriptions;
+/// Card tokenization.
 pub mod tokens;
+/// Shared request and response types.
 pub mod types;
+/// Webhook payload parsing and notification verification.
 pub mod webhook;
 
 pub use client::{BepaidClient, DEFAULT_API_URL, DEFAULT_CHECKOUT_URL, DEFAULT_GATEWAY_URL};
