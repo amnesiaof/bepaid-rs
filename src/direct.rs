@@ -9,7 +9,7 @@ use crate::error::BepaidError;
 use crate::types::{
     ApmConfirmEnvelope, ApmConfirmRequest, ApmConfirmResponse, ApmPaymentEnvelope,
     ApmPaymentRequest, ApmPaymentResponse, ApmRefundEnvelope, ApmRefundRequest, ApmRefundResponse,
-    BalanceRequest, BalanceResponse,
+    BalanceRequest, BalanceResponse, SplitPaymentRequest, SplitPaymentResponse,
 };
 
 #[derive(serde::Serialize)]
@@ -91,6 +91,56 @@ impl BepaidClient {
             )
             .await?;
         Ok(envelope.response)
+    }
+
+    /// Split a payment among several shops in one request. The `split` map in
+    /// `additional_data` assigns an amount (minor units) per recipient shop id.
+    ///
+    /// # Example
+    ///
+    /// ```no_run
+    /// use std::collections::HashMap;
+    ///
+    /// use bepaid::BepaidClient;
+    /// use bepaid::types::{SplitAdditionalData, SplitCreditCard, SplitPaymentRequest};
+    ///
+    /// #[tokio::main]
+    /// async fn main() -> Result<(), bepaid::BepaidError> {
+    ///     let client = BepaidClient::new("shop_id", "secret_key");
+    ///     let mut split = HashMap::new();
+    ///     split.insert("241".to_owned(), 40);
+    ///     split.insert("242".to_owned(), 50);
+    ///     let request = SplitPaymentRequest {
+    ///         amount: 100,
+    ///         currency: "USD".to_owned(),
+    ///         description: "Test transaction".to_owned(),
+    ///         tracking_id: "tracking_id_000".to_owned(),
+    ///         billing_address: None,
+    ///         credit_card: SplitCreditCard {
+    ///             token: "credit-card-token".to_owned(),
+    ///         },
+    ///         customer: None,
+    ///         additional_data: Some(SplitAdditionalData {
+    ///             contract: None,
+    ///             split,
+    ///         }),
+    ///     };
+    ///     let response = client.create_split_payment(request).await?;
+    ///     println!("{} split transactions", response.splits.len());
+    ///     Ok(())
+    /// }
+    /// ```
+    pub async fn create_split_payment(
+        &self,
+        req: SplitPaymentRequest,
+    ) -> Result<SplitPaymentResponse, BepaidError> {
+        self.request_json(
+            Method::POST,
+            &self.api("/splits/payment"),
+            Some(&RequestEnvelope { request: req }),
+            None,
+        )
+        .await
     }
 
     /// Query the balance of an APM gateway account.

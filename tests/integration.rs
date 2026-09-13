@@ -1029,3 +1029,65 @@ async fn merchant_channel_balances_happy_path() {
     assert_eq!(bals[0].gateway_id, Some(3405));
     assert_eq!(bals[0].amount, Some(100));
 }
+
+#[tokio::test]
+async fn split_payment_happy_path() {
+    let server = MockServer::start().await;
+    Mock::given(method("POST"))
+        .and(path("/splits/payment"))
+        .and(wiremock::matchers::header("authorization", AUTH))
+        .respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({
+            "splits": [
+                {
+                    "uid": "21-99834feb0b",
+                    "amount": 70,
+                    "status": "successful",
+                    "message": "Successfully processed",
+                    "shop_id": 91,
+                    "parent": true,
+                    "parent_uid": null
+                },
+                {
+                    "uid": "22-56784ffecd",
+                    "amount": 30,
+                    "status": "successful",
+                    "message": "Successfully processed",
+                    "shop_id": 1111,
+                    "parent": false,
+                    "parent_uid": "21-99834feb0b"
+                }
+            ]
+        })))
+        .expect(1)
+        .mount(&server)
+        .await;
+
+    use std::collections::HashMap;
+
+    let c = client(&server);
+    let mut split = HashMap::new();
+    split.insert("1111".to_owned(), 30);
+    let resp = c
+        .create_split_payment(bepaid::types::SplitPaymentRequest {
+            amount: 100,
+            currency: "USD".to_owned(),
+            description: "Test transaction".to_owned(),
+            tracking_id: "tracking_id_000".to_owned(),
+            billing_address: None,
+            credit_card: bepaid::types::SplitCreditCard {
+                token: "credit-card-token".to_owned(),
+            },
+            customer: None,
+            additional_data: Some(bepaid::types::SplitAdditionalData {
+                contract: None,
+                split,
+            }),
+        })
+        .await
+        .expect("split payment should succeed");
+
+    assert_eq!(resp.splits.len(), 2);
+    assert_eq!(resp.splits[0].uid, "21-99834feb0b");
+    assert!(resp.splits[0].parent);
+    assert_eq!(resp.splits[1].parent_uid.as_deref(), Some("21-99834feb0b"));
+}

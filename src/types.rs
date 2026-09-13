@@ -1857,3 +1857,70 @@ pub struct ChannelBalance {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub amount: Option<i64>,
 }
+
+/// Credit card used in a split payment (token only).
+#[derive(Debug, Clone, Serialize)]
+pub struct SplitCreditCard {
+    /// Payment token previously created via tokenization.
+    pub token: String,
+}
+
+/// Distribution of a split payment among recipient shops.
+#[derive(Debug, Clone, Serialize)]
+pub struct SplitAdditionalData {
+    /// Contract reference.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub contract: Option<String>,
+    /// Amount (minor units) per recipient shop id, e.g. `{"241": 40, "242": 50}`.
+    pub split: std::collections::HashMap<String, i64>,
+}
+
+/// Request body of the split payment endpoint.
+#[derive(Debug, Clone, Serialize)]
+pub struct SplitPaymentRequest {
+    /// Total amount in minor units.
+    pub amount: i64,
+    /// ISO 4217 currency code.
+    pub currency: String,
+    /// Transaction description.
+    pub description: String,
+    /// Merchant tracking id.
+    pub tracking_id: String,
+    /// Billing address of the cardholder (optional).
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub billing_address: Option<BillingAddress>,
+    /// Card token used for the payment.
+    pub credit_card: SplitCreditCard,
+    /// Customer metadata (optional).
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub customer: Option<Customer>,
+    /// Split distribution across shops (optional).
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub additional_data: Option<SplitAdditionalData>,
+}
+
+/// One transaction produced by a split payment.
+#[derive(Debug, Clone, Deserialize)]
+pub struct SplitItem {
+    /// Transaction uid.
+    pub uid: String,
+    /// Amount in minor units.
+    pub amount: i64,
+    /// Transaction status, e.g. `successful`.
+    pub status: String,
+    /// Result message.
+    pub message: String,
+    /// Shop this part is paid to.
+    pub shop_id: i64,
+    /// Whether this is the parent transaction.
+    pub parent: bool,
+    /// UID of the parent transaction, if any.
+    pub parent_uid: Option<String>,
+}
+
+/// Response of the split payment endpoint.
+#[derive(Debug, Clone, Deserialize)]
+pub struct SplitPaymentResponse {
+    /// The individual transactions making up the split.
+    pub splits: Vec<SplitItem>,
+}
