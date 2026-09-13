@@ -1924,3 +1924,97 @@ pub struct SplitPaymentResponse {
     /// The individual transactions making up the split.
     pub splits: Vec<SplitItem>,
 }
+
+/// Request body for creating a pay-by-link product.
+#[derive(Debug, Clone, Serialize)]
+pub struct ProductCreateRequest {
+    /// Product name.
+    pub name: String,
+    /// Product description.
+    pub description: String,
+    /// ISO 4217 currency code (or cryptocurrency code).
+    pub currency: String,
+    /// Price in minor units.
+    pub amount: i64,
+    /// Number of units in stock; omit when `infinite` is set.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub quantity: Option<String>,
+    /// Whether the stock is unlimited.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub infinite: Option<bool>,
+    /// Fields shown on the payment page (`first_name`, `last_name`, ...).
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub visible_fields: Option<Vec<String>>,
+    /// Whether this is a test product.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub test: Option<bool>,
+    /// Whether the payment time is unlimited.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub immortal: Option<bool>,
+    /// ISO 8601 expiry (`YYYY-MM-DDThh:mm:ssTZD`); required unless `immortal`.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub expired_at: Option<String>,
+    /// URL the customer is redirected to after payment.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub return_url: Option<String>,
+    /// Shop id the payment goes to.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub shop_id: Option<String>,
+    /// Payment page language (default `en`).
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub language: Option<String>,
+    /// `payment` or `authorization`.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub transaction_type: Option<String>,
+}
+
+/// Request body for updating a pay-by-link product.
+#[derive(Debug, Clone, Serialize)]
+pub struct ProductUpdateRequest {
+    /// New price in minor units.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub amount: Option<i64>,
+    /// Whether the stock is unlimited.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub infinite: Option<bool>,
+    /// New available quantity.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub quantity: Option<String>,
+}
+
+/// A pay-by-link product and its payment links.
+#[derive(Debug, Clone, Deserialize)]
+pub struct Product {
+    /// Product id (e.g. `prd_...`).
+    pub id: String,
+    /// Product name.
+    pub name: String,
+    /// Product description.
+    pub description: String,
+    /// ISO 4217 currency code.
+    pub currency: String,
+    /// Price in minor units.
+    pub amount: i64,
+    /// Units in stock; `None` when unlimited.
+    pub quantity: Option<i64>,
+    /// Whether the quantity is unlimited.
+    pub infinite: bool,
+    /// Payment page language.
+    pub language: String,
+    /// `payment` or `authorization`.
+    pub transaction_type: String,
+    /// Creation timestamp.
+    pub created_at: String,
+    /// Last update timestamp.
+    pub updated_at: String,
+    /// Whether this is a test product.
+    pub test: bool,
+    /// Additional product data.
+    pub additional_data: serde_json::Value,
+    /// Direct payment URL.
+    pub pay_url: String,
+    /// Alias of `pay_url`.
+    pub payment_url: String,
+    /// Order confirmation URL.
+    pub confirm_url: String,
+}

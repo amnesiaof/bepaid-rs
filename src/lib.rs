@@ -8,6 +8,7 @@
 //! - **Direct** ([`direct`]) — alternative payment methods (APM), their confirmations
 //!   and balance queries against `https://api.bepaid.by`.
 //! - **Subscriptions** ([`subscriptions`]) — customers, plans and recurring subscriptions.
+//! - **Products** ([`products`]) — pay-by-link products and payment link management.
 //! - **Tokens** ([`tokens`]) — PCI-DSS-certified card tokenization.
 //! - **Merchant** ([`merchant`]) — reports and payout control against
 //!   `https://merchant.bepaid.by`.
@@ -57,6 +58,8 @@ pub mod gateway;
 pub mod merchant;
 /// Peer-to-peer card transfers.
 pub mod p2p;
+/// Pay-by-link products and payment links.
+pub mod products;
 /// Customers, plans and recurring subscriptions.
 pub mod subscriptions;
 /// Card tokenization.

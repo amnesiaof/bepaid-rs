@@ -91,6 +91,29 @@ impl BepaidClient {
         body: Option<&impl serde::Serialize>,
         api_version: Option<&str>,
     ) -> Result<T, BepaidError> {
+        let resp = self.send_request(method, url, body, api_version).await?;
+        Ok(resp.json().await?)
+    }
+
+    /// Send a request and discard the body (for 2xx responses without a payload).
+    pub(crate) async fn request_status(
+        &self,
+        method: reqwest::Method,
+        url: &str,
+        body: Option<&impl serde::Serialize>,
+        api_version: Option<&str>,
+    ) -> Result<(), BepaidError> {
+        self.send_request(method, url, body, api_version).await?;
+        Ok(())
+    }
+
+    async fn send_request(
+        &self,
+        method: reqwest::Method,
+        url: &str,
+        body: Option<&impl serde::Serialize>,
+        api_version: Option<&str>,
+    ) -> Result<reqwest::Response, BepaidError> {
         let mut builder = self
             .http
             .request(method.clone(), url)
@@ -106,7 +129,7 @@ impl BepaidClient {
         let resp = builder.send().await?;
         let status = resp.status();
         if status.is_success() {
-            Ok(resp.json().await?)
+            Ok(resp)
         } else {
             let text = resp.text().await.unwrap_or_default();
             let message = serde_json::from_str::<serde_json::Value>(&text)

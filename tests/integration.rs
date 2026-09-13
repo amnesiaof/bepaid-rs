@@ -3,8 +3,9 @@ use bepaid::{
     types::{
         ApmConfirmRequest, ApmPaymentRequest, AuthorizationRequest, BalanceRequest,
         CancelSubscriptionRequest, CaptureRequest, CheckoutRequest, CreateTokenRequest,
-        CustomerRecord, P2pRequest, PaymentRequest, PayoutRequest, RefundRequest,
-        ReportListRequest, ReportParams, SubscriptionCreateRequest, VoidRequest,
+        CustomerRecord, P2pRequest, PaymentRequest, PayoutRequest, ProductCreateRequest,
+        ProductUpdateRequest, RefundRequest, ReportListRequest, ReportParams,
+        SubscriptionCreateRequest, VoidRequest,
     },
     webhook::{parse_subscription_webhook, parse_webhook, verify_webhook_auth},
 };
@@ -1090,4 +1091,154 @@ async fn split_payment_happy_path() {
     assert_eq!(resp.splits[0].uid, "21-99834feb0b");
     assert!(resp.splits[0].parent);
     assert_eq!(resp.splits[1].parent_uid.as_deref(), Some("21-99834feb0b"));
+}
+
+#[tokio::test]
+async fn create_product_happy_path() {
+    let server = MockServer::start().await;
+    Mock::given(method("POST"))
+        .and(path("/products"))
+        .and(wiremock::matchers::header("authorization", AUTH))
+        .respond_with(ResponseTemplate::new(201).set_body_json(serde_json::json!({
+            "id": "prd_ed27b047d3ccd1a6",
+            "name": "product",
+            "description": "description of product",
+            "currency": "USD",
+            "amount": 990,
+            "quantity": 10,
+            "infinite": false,
+            "language": "en",
+            "transaction_type": "payment",
+            "created_at": "2022-12-20T18:54:42.033Z",
+            "updated_at": "2022-12-20T18:54:42.033Z",
+            "test": false,
+            "additional_data": {},
+            "pay_url": "https://api.bepaid.by/products/prd_ed27b047d3ccd1a6/pay",
+            "payment_url": "https://api.bepaid.by/products/prd_ed27b047d3ccd1a6/pay",
+            "confirm_url": "https://checkout.bepaid.by/v2/confirm_order/prd_ed27b047d3ccd1a6/1"
+        })))
+        .expect(1)
+        .mount(&server)
+        .await;
+
+    let c = client(&server);
+    let resp = c
+        .create_product(ProductCreateRequest {
+            name: "product".to_owned(),
+            description: "description of product".to_owned(),
+            currency: "USD".to_owned(),
+            amount: 990,
+            quantity: Some("10".to_owned()),
+            infinite: Some(false),
+            visible_fields: None,
+            test: Some(false),
+            immortal: Some(false),
+            expired_at: None,
+            return_url: None,
+            shop_id: None,
+            language: Some("en".to_owned()),
+            transaction_type: Some("payment".to_owned()),
+        })
+        .await
+        .expect("product creation should succeed");
+
+    assert_eq!(resp.id, "prd_ed27b047d3ccd1a6");
+    assert_eq!(resp.amount, 990);
+    assert_eq!(
+        resp.pay_url,
+        "https://api.bepaid.by/products/prd_ed27b047d3ccd1a6/pay"
+    );
+}
+
+#[tokio::test]
+async fn list_products_happy_path() {
+    let server = MockServer::start().await;
+    Mock::given(method("GET"))
+        .and(path("/products"))
+        .and(wiremock::matchers::header("authorization", AUTH))
+        .respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!([
+            {
+                "id": "prd_1",
+                "name": "product",
+                "description": "description",
+                "amount": 100,
+                "currency": "USD",
+                "language": "en",
+                "infinite": true,
+                "quantity": null,
+                "transaction_type": "payment",
+                "created_at": "2023-05-02T17:35:14.950Z",
+                "updated_at": "2023-05-02T17:35:14.950Z",
+                "additional_data": {},
+                "test": false,
+                "pay_url": "https://api.bepaid.by/products/prd_1/pay",
+                "payment_url": "https://api.bepaid.by/products/prd_1/pay",
+                "confirm_url": "https://checkout.bepaid.by/v2/confirm_order/prd_1/1"
+            }
+        ])))
+        .expect(1)
+        .mount(&server)
+        .await;
+
+    let c = client(&server);
+    let resp = c.list_products().await.expect("listing should succeed");
+    assert_eq!(resp.len(), 1);
+    assert_eq!(resp[0].id, "prd_1");
+}
+
+#[tokio::test]
+async fn get_product_happy_path() {
+    let server = MockServer::start().await;
+    Mock::given(method("GET"))
+        .and(path("/products/prd_1"))
+        .and(wiremock::matchers::header("authorization", AUTH))
+        .respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({
+            "id": "prd_1",
+            "name": "product",
+            "description": "description",
+            "amount": 100,
+            "currency": "USD",
+            "language": "en",
+            "infinite": true,
+            "quantity": null,
+            "transaction_type": "payment",
+            "created_at": "2023-05-02T17:35:14.950Z",
+            "updated_at": "2023-05-02T17:35:14.950Z",
+            "additional_data": {},
+            "test": false,
+            "pay_url": "https://api.bepaid.by/products/prd_1/pay",
+            "payment_url": "https://api.bepaid.by/products/prd_1/pay",
+            "confirm_url": "https://checkout.bepaid.by/v2/confirm_order/prd_1/1"
+        })))
+        .expect(1)
+        .mount(&server)
+        .await;
+
+    let c = client(&server);
+    let resp = c.get_product("prd_1").await.expect("fetch should succeed");
+    assert_eq!(resp.id, "prd_1");
+}
+
+#[tokio::test]
+async fn update_product_happy_path() {
+    let server = MockServer::start().await;
+    Mock::given(method("PUT"))
+        .and(path("/products/prd_1"))
+        .and(wiremock::matchers::header("authorization", AUTH))
+        .respond_with(ResponseTemplate::new(204))
+        .expect(1)
+        .mount(&server)
+        .await;
+
+    let c = client(&server);
+    c.update_product(
+        "prd_1",
+        ProductUpdateRequest {
+            amount: Some(950),
+            infinite: Some(false),
+            quantity: Some("5".to_owned()),
+        },
+    )
+    .await
+    .expect("update should succeed");
 }
