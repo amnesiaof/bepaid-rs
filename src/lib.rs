@@ -5,6 +5,8 @@ pub mod client;
 pub mod direct;
 pub mod error;
 pub mod gateway;
+pub mod p2p;
+pub mod subscriptions;
 pub mod tokens;
 pub mod types;
 pub mod webhook;

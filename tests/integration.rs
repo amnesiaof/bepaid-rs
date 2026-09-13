@@ -1,10 +1,11 @@
 use bepaid::{
     BepaidClient, BepaidError,
     types::{
-        ApmPaymentRequest, AuthorizationRequest, CaptureRequest, CheckoutRequest,
-        CreateTokenRequest, PaymentRequest, RefundRequest, VoidRequest,
+        ApmConfirmRequest, ApmPaymentRequest, AuthorizationRequest, CancelSubscriptionRequest,
+        CaptureRequest, CheckoutRequest, CreateTokenRequest, CustomerRecord, P2pRequest,
+        PaymentRequest, RefundRequest, SubscriptionCreateRequest, VoidRequest,
     },
-    webhook::{parse_webhook, verify_webhook_auth},
+    webhook::{parse_subscription_webhook, parse_webhook, verify_webhook_auth},
 };
 use wiremock::{
     Mock, MockServer, ResponseTemplate,
@@ -512,4 +513,302 @@ async fn webhook_verify_and_parse() {
     assert_eq!(n.transaction.uid, "566fd40a-2379-46d6-aecd-67779afcf883");
     assert_eq!(n.transaction.status, "pending");
     assert_eq!(n.transaction.tx_type, "payment");
+}
+
+#[tokio::test]
+async fn subscriptions_crud() {
+    let server = MockServer::start().await;
+    Mock::given(method("POST"))
+        .and(path("/customers"))
+        .respond_with(ResponseTemplate::new(201).set_body_json(serde_json::json!({
+            "id": "cst_7aee5afb954c7ef7",
+            "first_name": "John",
+            "last_name": "Doe",
+            "email": "customer@example.com"
+        })))
+        .expect(1)
+        .mount(&server)
+        .await;
+    Mock::given(method("GET"))
+        .and(path("/customers/cst_7aee5afb954c7ef7"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({
+            "id": "cst_7aee5afb954c7ef7",
+            "email": "customer@example.com"
+        })))
+        .expect(1)
+        .mount(&server)
+        .await;
+
+    let c = client(&server);
+    let created = c
+        .create_customer(CustomerRecord {
+            id: None,
+            first_name: Some("John".into()),
+            last_name: Some("Doe".into()),
+            address: None,
+            city: None,
+            country: None,
+            zip: None,
+            state: None,
+            phone: None,
+            email: Some("customer@example.com".into()),
+            ip: Some("127.0.0.1".into()),
+            external_id: None,
+        })
+        .await
+        .expect("create should succeed");
+    assert_eq!(created.id.as_deref(), Some("cst_7aee5afb954c7ef7"));
+
+    let fetched = c
+        .get_customer("cst_7aee5afb954c7ef7")
+        .await
+        .expect("get should succeed");
+    assert_eq!(fetched.email.as_deref(), Some("customer@example.com"));
+}
+
+#[tokio::test]
+async fn create_subscription_with_token() {
+    let server = MockServer::start().await;
+    Mock::given(method("POST"))
+        .and(path("/subscriptions"))
+        .respond_with(ResponseTemplate::new(201).set_body_json(serde_json::json!({
+            "id": "sbs_cce60e7f2d661bc0",
+            "state": "active",
+            "tracking_id": "my_tracking_id",
+            "card": {"brand": "master", "last_4": "5003", "token": "tok_1"},
+            "customer": {"id": "cst_ec240ca02bac424b"},
+            "plan": {"id": "pln_f5ee5ebd04e39daa", "title": "Basic plan"},
+            "last_transaction": {"uid": "f0eee433", "status": "successful"}
+        })))
+        .expect(1)
+        .mount(&server)
+        .await;
+
+    let c = client(&server);
+    let s = c
+        .create_subscription(SubscriptionCreateRequest {
+            card: Some(bepaid::types::SubscriptionCard {
+                token: Some("tok_1".into()),
+                number: None,
+                holder: None,
+                verification_value: None,
+                exp_month: None,
+                exp_year: None,
+            }),
+            customer: Some(bepaid::types::SubscriptionCustomer {
+                id: Some("cst_ec240ca02bac424b".into()),
+                first_name: None,
+                last_name: None,
+                email: None,
+            }),
+            plan: bepaid::types::SubscriptionPlan {
+                id: Some("pln_f5ee5ebd04e39daa".into()),
+                title: None,
+                currency: None,
+                plan: None,
+                trial: None,
+            },
+            tracking_id: Some("my_tracking_id".into()),
+            device_id: None,
+            return_url: None,
+            notification_url: None,
+            dynamic_billing_descriptor: None,
+            additional_data: None,
+            settings: None,
+        })
+        .await
+        .expect("create subscription should succeed");
+
+    assert_eq!(s.state.as_deref(), Some("active"));
+    assert_eq!(
+        s.card.as_ref().and_then(|c| c.brand.as_deref()),
+        Some("master")
+    );
+}
+
+#[tokio::test]
+async fn cancel_subscription_happy_path() {
+    let server = MockServer::start().await;
+    Mock::given(method("POST"))
+        .and(path("/subscriptions/sbs_1/cancel"))
+        .respond_with(
+            ResponseTemplate::new(200).set_body_json(serde_json::json!({"state": "canceled"})),
+        )
+        .expect(1)
+        .mount(&server)
+        .await;
+
+    let c = client(&server);
+    let r = c
+        .cancel_subscription(
+            "sbs_1",
+            CancelSubscriptionRequest {
+                cancel_reason: "Customer's request".into(),
+            },
+        )
+        .await
+        .expect("cancel should succeed");
+    assert_eq!(r["state"], "canceled");
+}
+
+#[tokio::test]
+async fn create_plan_and_list() {
+    let server = MockServer::start().await;
+    Mock::given(method("POST"))
+        .and(path("/plans"))
+        .respond_with(ResponseTemplate::new(201).set_body_json(serde_json::json!({
+            "id": "pln_2b0c211f50deb72c",
+            "title": "Basic plan",
+            "currency": "USD",
+            "plan": {"amount": 20, "interval": 7, "interval_unit": "day"},
+            "number_payment_attempts": 3,
+            "test": true
+        })))
+        .expect(1)
+        .mount(&server)
+        .await;
+    Mock::given(method("GET"))
+        .and(path("/plans"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!([
+            {"id": "pln_2b0c211f50deb72c", "title": "Basic plan"}
+        ])))
+        .expect(1)
+        .mount(&server)
+        .await;
+
+    let c = client(&server);
+    let p = c
+        .create_plan(bepaid::types::PlanItem {
+            id: None,
+            test: Some(true),
+            title: Some("Basic plan".into()),
+            currency: Some("USD".into()),
+            language: None,
+            plan: Some(bepaid::types::PlanInterval {
+                amount: Some(20),
+                interval: Some(7),
+                interval_unit: Some("day".into()),
+                visible_fields: None,
+            }),
+            trial: None,
+            infinite: None,
+            billing_cycles: None,
+            number_payment_attempts: Some(3),
+            prevent_payments_at_night: None,
+            created_at: None,
+            updated_at: None,
+            pay_url: None,
+        })
+        .await
+        .expect("create plan should succeed");
+    assert_eq!(p.id.as_deref(), Some("pln_2b0c211f50deb72c"));
+
+    let plans = c.list_plans().await.expect("list should succeed");
+    assert_eq!(plans.len(), 1);
+    assert_eq!(plans[0].title.as_deref(), Some("Basic plan"));
+}
+
+#[tokio::test]
+async fn apm_confirm_happy_path() {
+    let server = MockServer::start().await;
+    Mock::given(method("POST"))
+        .and(path("/beyag/transactions/1-310b0da80b/confirm"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({
+            "response": {
+                "parent_uid": "1-310b0da80b",
+                "type": "confirm",
+                "status": "successful",
+                "message": "Confirm was successfully processed",
+                "amount": 332400,
+                "currency": "USD"
+            }
+        })))
+        .expect(1)
+        .mount(&server)
+        .await;
+
+    let c = client(&server);
+    let r = c
+        .confirm_apm_payment(
+            "1-310b0da80b",
+            ApmConfirmRequest {
+                skip_duplicate_check: Some(false),
+                transaction_reference: "receipt-123".into(),
+            },
+        )
+        .await
+        .expect("confirm should succeed");
+
+    assert_eq!(r.status.as_deref(), Some("successful"));
+    assert_eq!(r.tx_type.as_deref(), Some("confirm"));
+}
+
+#[tokio::test]
+async fn p2p_happy_path() {
+    let server = MockServer::start().await;
+    Mock::given(method("POST"))
+        .and(path("/transactions/p2ps"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({
+            "transaction": {
+                "uid": "1-82cc07d15d",
+                "status": "successful",
+                "type": "p2p",
+                "amount": 100,
+                "currency": "EUR",
+                "credit_card": {"brand": "visa", "last_4": "1112"},
+                "recipient_card": {"brand": "visa", "last_4": "0000"},
+                "verify_p2p": {"status": "successful", "amount": 100, "currency": "EUR"}
+            }
+        })))
+        .expect(1)
+        .mount(&server)
+        .await;
+
+    let c = client(&server);
+    let t = c
+        .create_p2p(P2pRequest {
+            amount: 100,
+            currency: "EUR".into(),
+            credit_card: bepaid::types::P2pCard {
+                number: Some("4012001037141112".into()),
+                holder: Some("John Doe".into()),
+                verification_value: Some("123".into()),
+                exp_month: Some("12".into()),
+                exp_year: Some("2028".into()),
+                token: None,
+            },
+            recipient_card: bepaid::types::P2pCard {
+                number: Some("4200000000000000".into()),
+                holder: None,
+                verification_value: None,
+                exp_month: None,
+                exp_year: None,
+                token: None,
+            },
+            test: Some(true),
+            tracking_id: None,
+            additional_data: None,
+        })
+        .await
+        .expect("p2p should succeed");
+
+    assert_eq!(t.status.as_deref(), Some("successful"));
+    assert_eq!(t.tx_type.as_deref(), Some("p2p"));
+    assert!(t.verify_p2p.is_some());
+}
+
+#[tokio::test]
+async fn subscription_webhook_parses() {
+    let body = r#"{
+        "id": "sbs_962f994ca74420d3",
+        "state": "trial",
+        "event": "created.subscription",
+        "card": {"brand": "visa", "last_4": "1006", "token": "tok"},
+        "plan": {"id": "pln_7f2e3edfbca72afc", "title": "Test plan"}
+    }"#;
+
+    let s = parse_subscription_webhook(body).expect("should parse");
+    assert_eq!(s.id.as_deref(), Some("sbs_962f994ca74420d3"));
+    assert_eq!(s.state.as_deref(), Some("trial"));
+    assert_eq!(s.event.as_deref(), Some("created.subscription"));
 }

@@ -3,8 +3,8 @@ use reqwest::Method;
 use crate::client::BepaidClient;
 use crate::error::BepaidError;
 use crate::types::{
-    ApmPaymentEnvelope, ApmPaymentRequest, ApmPaymentResponse, ApmRefundEnvelope, ApmRefundRequest,
-    ApmRefundResponse,
+    ApmConfirmEnvelope, ApmConfirmRequest, ApmConfirmResponse, ApmPaymentEnvelope,
+    ApmPaymentRequest, ApmPaymentResponse, ApmRefundEnvelope, ApmRefundRequest, ApmRefundResponse,
 };
 
 #[derive(serde::Serialize)]
@@ -69,5 +69,22 @@ impl BepaidClient {
             )
             .await?;
         Ok(envelope.transaction)
+    }
+
+    /// Confirm a payment from a third-party application.
+    pub async fn confirm_apm_payment(
+        &self,
+        uid: &str,
+        req: ApmConfirmRequest,
+    ) -> Result<ApmConfirmResponse, BepaidError> {
+        let envelope: ApmConfirmEnvelope = self
+            .request_json(
+                Method::POST,
+                &self.api(&format!("/beyag/transactions/{uid}/confirm")),
+                Some(&req),
+                false,
+            )
+            .await?;
+        Ok(envelope.response)
     }
 }

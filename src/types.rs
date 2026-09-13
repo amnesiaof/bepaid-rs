@@ -643,6 +643,328 @@ pub(crate) struct ApmRefundEnvelope {
     pub transaction: ApmRefundResponse,
 }
 
+// ── subscriptions API (api.bepaid.by) ────────────────────────────────────────
+
+/// A customer resource in the subscription service. Used for both create
+/// requests (server assigns `id`) and responses. All fields are optional
+/// except `email` when creating.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CustomerRecord {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub id: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub first_name: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub last_name: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub address: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub city: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub country: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub zip: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub state: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub phone: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub email: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub ip: Option<String>,
+    #[serde(rename = "external_id", skip_serializing_if = "Option::is_none")]
+    pub external_id: Option<String>,
+}
+
+/// Plan interval / amount configuration.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct PlanInterval {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub amount: Option<i64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub interval: Option<i64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub interval_unit: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub visible_fields: Option<Vec<String>>,
+}
+
+/// Trial period settings of a plan.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct PlanTrial {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub amount: Option<i64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub interval: Option<i64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub interval_unit: Option<String>,
+    #[serde(rename = "as_first_payment", skip_serializing_if = "Option::is_none")]
+    pub as_first_payment: Option<bool>,
+}
+
+/// A subscription plan. Used for both create requests and responses.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct PlanItem {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub id: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub test: Option<bool>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub title: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub currency: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub language: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub plan: Option<PlanInterval>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub trial: Option<PlanTrial>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub infinite: Option<bool>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub billing_cycles: Option<i64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub number_payment_attempts: Option<i64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub prevent_payments_at_night: Option<bool>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub created_at: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub updated_at: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub pay_url: Option<String>,
+}
+
+/// Card section of a subscription create request. Either a `token` or the
+/// full card details (expiration as zero-padded strings, per the docs).
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SubscriptionCard {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub token: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub number: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub holder: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub verification_value: Option<String>,
+    #[serde(rename = "exp_month", skip_serializing_if = "Option::is_none")]
+    pub exp_month: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub exp_year: Option<String>,
+}
+
+/// Customer section of a subscription request: either an existing customer
+/// `id` or inline customer details.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SubscriptionCustomer {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub id: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub first_name: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub last_name: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub email: Option<String>,
+}
+
+/// Plan section of a subscription request: either a plan `id` or a full plan.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SubscriptionPlan {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub id: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub title: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub currency: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub plan: Option<PlanInterval>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub trial: Option<PlanTrial>,
+}
+
+/// Create a subscription. `plan` is required; `card` + `customer` optional
+/// for the hosted flow (customer is redirected to `redirect_url`).
+#[derive(Debug, Clone, Serialize)]
+pub struct SubscriptionCreateRequest {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub card: Option<SubscriptionCard>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub customer: Option<SubscriptionCustomer>,
+    pub plan: SubscriptionPlan,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub tracking_id: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub device_id: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub return_url: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub notification_url: Option<String>,
+    #[serde(
+        rename = "dynamic_billing_descriptor",
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub dynamic_billing_descriptor: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub additional_data: Option<serde_json::Value>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub settings: Option<serde_json::Value>,
+}
+
+/// A subscription as returned by the API or delivered by a webhook.
+#[derive(Debug, Clone, Deserialize)]
+pub struct Subscription {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub id: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub state: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub tracking_id: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub device_id: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub created_at: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub renew_at: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub active_to: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub card: Option<CreditCardInfo>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub customer: Option<SubscriptionCustomer>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub plan: Option<serde_json::Value>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub last_transaction: Option<serde_json::Value>,
+    #[serde(
+        rename = "paid_billing_cycles",
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub paid_billing_cycles: Option<i64>,
+    #[serde(
+        rename = "number_failed_payment_attempts",
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub number_failed_payment_attempts: Option<i64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub additional_data: Option<serde_json::Value>,
+    #[serde(rename = "redirect_url", skip_serializing_if = "Option::is_none")]
+    pub redirect_url: Option<String>,
+    /// Event name, present in webhook payloads (e.g. `created.subscription`).
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub event: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize)]
+pub struct CancelSubscriptionRequest {
+    #[serde(rename = "cancel_reason")]
+    pub cancel_reason: String,
+}
+
+// ── APM: confirm transaction ──────────────────────────────────────────────────
+
+#[derive(Debug, Clone, Serialize)]
+pub struct ApmConfirmRequest {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub skip_duplicate_check: Option<bool>,
+    pub transaction_reference: String,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+pub struct ApmConfirmResponse {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub parent_uid: Option<String>,
+    #[serde(rename = "type", skip_serializing_if = "Option::is_none")]
+    pub tx_type: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub status: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub message: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub created_at: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub amount: Option<i64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub currency: Option<String>,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+pub(crate) struct ApmConfirmEnvelope {
+    pub response: ApmConfirmResponse,
+}
+
+// ── P2P transfer ──────────────────────────────────────────────────────────────
+
+/// Sender or recipient card of a P2P transfer. Either a `token` or a card
+/// number (expiration/holder/CVV required for the source card).
+#[derive(Debug, Clone, Serialize)]
+pub struct P2pCard {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub number: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub holder: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub verification_value: Option<String>,
+    #[serde(rename = "exp_month", skip_serializing_if = "Option::is_none")]
+    pub exp_month: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub exp_year: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub token: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize)]
+pub struct P2pAdditionalData {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub p2p: Option<P2pInfo>,
+}
+
+#[derive(Debug, Clone, Serialize)]
+pub struct P2pInfo {
+    #[serde(rename = "type", skip_serializing_if = "Option::is_none")]
+    pub p2p_type: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize)]
+pub struct P2pRequest {
+    pub amount: i64,
+    pub currency: String,
+    pub credit_card: P2pCard,
+    pub recipient_card: P2pCard,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub test: Option<bool>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub tracking_id: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub additional_data: Option<P2pAdditionalData>,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+pub struct P2pResponse {
+    pub uid: Option<String>,
+    pub status: Option<String>,
+    pub amount: Option<i64>,
+    pub currency: Option<String>,
+    pub description: Option<String>,
+    #[serde(rename = "type")]
+    pub tx_type: Option<String>,
+    pub tracking_id: Option<String>,
+    pub test: Option<bool>,
+    pub created_at: Option<String>,
+    pub redirect_url: Option<String>,
+    pub credit_card: Option<CreditCardInfo>,
+    pub recipient_card: Option<CreditCardInfo>,
+    pub receipt_url: Option<String>,
+    pub verify_p2p: Option<serde_json::Value>,
+    pub p2p: Option<serde_json::Value>,
+    pub sender_billing_address: Option<BillingAddress>,
+    pub recipient_billing_address: Option<BillingAddress>,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+pub(crate) struct P2pEnvelope {
+    pub transaction: P2pResponse,
+}
+
 // ── webhook ───────────────────────────────────────────────────────────────────
 
 #[derive(Debug, Clone, Deserialize)]
