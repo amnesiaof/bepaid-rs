@@ -2,14 +2,16 @@
 
 Async Rust client for the [bePaid payment API](https://docs.bepaid.by) (bepaid.by).
 
-Covers the Gateway API (card payments, tokenization, capture, void, refunds),
-the hosted Checkout API, and the Direct/APM API (alternative payment methods).
+Covers the Gateway API (card payments, tokenization, capture, void, refunds,
+including payouts), the hosted Checkout API, the Direct/APM API (alternative
+payment methods and balance queries), and the Merchant API (reports, channel
+balances).
 
 ## Install
 
 ```toml
 [dependencies]
-bepaid = "0.4"
+bepaid = "0.5"
 ```
 
 Also needs a Tokio runtime (the client is async):
@@ -196,11 +198,12 @@ Ready-to-run programs under [`examples/`](examples/):
 
 | Group         | Operations |
 |---------------|------------|
-| Gateway       | `create_payment`, `create_authorization`, `capture`, `void`, `refund`, `get_transaction`, `create_p2p` |
+| Gateway       | `create_payment`, `create_authorization`, `capture`, `void`, `refund`, `get_transaction`, `create_p2p`, `create_payout` |
 | Tokens        | `create_token` |
 | Checkout      | `create_checkout`, `get_checkout_status`, `validate_apple_pay` |
-| Direct        | `create_apm_payment`, `apm_refund`, `apm_full_refund`, `confirm_apm_payment` |
+| Direct        | `create_apm_payment`, `apm_refund`, `apm_full_refund`, `confirm_apm_payment`, `get_balance` |
 | Subscriptions | `create_customer`, `get_customer`, `list_customers`, `create_plan`, `get_plan`, `list_plans`, `create_subscription`, `get_subscription`, `cancel_subscription` |
+| Merchant      | `get_reports`, `get_report_count`, `get_channel_balances` |
 | Webhooks      | verification + payload parsing (transaction & subscription) |
 
 ## License

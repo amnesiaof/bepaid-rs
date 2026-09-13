@@ -7,8 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.5.0] - 2026-09-13
+
 ### Added
 
+- Payout transactions: `create_payout` (Gateway API, `X-API-Version: 3`).
+- APM balance query: `get_balance` (Direct API).
+- Merchant reports: `get_reports`, `get_report_count`, `get_channel_balances`
+  (Merchant API with configurable `merchant_url` and mixed `X-API-Version: 2/3`).
+- `DEFAULT_MERCHANT_URL` constant and `merchant_url` field on `BepaidClient`.
 - Runnable examples: `examples/payment.rs` (card flow with 3-D Secure),
   `examples/subscriptions.rs` (customer → plan → subscription).
 
@@ -52,7 +59,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Direct (APM) API: `create_apm_payment`, `apm_refund`, `apm_full_refund`.
 - Webhooks: `verify_webhook_auth`, `parse_webhook`.
 
-[Unreleased]: https://github.com/amnesiaof/bepaid-rs/compare/v0.4.0...HEAD
+[Unreleased]: https://github.com/amnesiaof/bepaid-rs/compare/v0.5.0...HEAD
+[0.5.0]: https://github.com/amnesiaof/bepaid-rs/compare/v0.4.0...v0.5.0
 [0.4.0]: https://github.com/amnesiaof/bepaid-rs/compare/v0.3.0...v0.4.0
 [0.3.0]: https://github.com/amnesiaof/bepaid-rs/compare/v0.2.0...v0.3.0
 [0.2.0]: https://github.com/amnesiaof/bepaid-rs/compare/v0.1.0...v0.2.0
