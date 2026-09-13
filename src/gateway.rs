@@ -9,9 +9,9 @@ use crate::error::BepaidError;
 use crate::types::{
     AuthorizationEnvelope, AuthorizationRequest, AuthorizationResponse, CaptureEnvelope,
     CaptureRequest, CaptureResponse, ChargeRequest, PaymentRequest, PaymentResponse,
-    PayoutEnvelope, PayoutRequest, PayoutResponse, RefundEnvelope, RefundRequest, RefundResponse,
-    Transaction, TransactionEnvelope, TransactionEnvelopeFull, VoidEnvelope, VoidRequest,
-    VoidResponse,
+    PayoutEnvelope, PayoutRequest, PayoutResponse, RecipientTokenizationRequest, RefundEnvelope,
+    RefundRequest, RefundResponse, Transaction, TransactionEnvelope, TransactionEnvelopeFull,
+    VoidEnvelope, VoidRequest, VoidResponse,
 };
 
 #[derive(serde::Serialize)]
@@ -246,5 +246,51 @@ impl BepaidClient {
             )
             .await?;
         Ok(envelope.transaction)
+    }
+
+    /// Tokenize a recipient's card for future payouts.
+    ///
+    /// POST `/transactions/recipient_tokenizations` (X-API-Version 3). No money
+    /// moves: the returned card token is used in [`PayoutRequest`] requests.
+    /// The response shape is not documented by bePaid, so raw JSON is returned.
+    ///
+    /// # Example
+    ///
+    /// ```no_run
+    /// use bepaid::BepaidClient;
+    /// use bepaid::types::{PayoutCreditCard, RecipientTokenizationRequest};
+    ///
+    /// #[tokio::main]
+    /// async fn main() -> Result<(), bepaid::BepaidError> {
+    ///     let client = BepaidClient::new("shop_id", "secret_key");
+    ///     let request = RecipientTokenizationRequest {
+    ///         description: Some("Tokenize card".to_owned()),
+    ///         tracking_id: None,
+    ///         recipient_billing_address: None,
+    ///         recipient_credit_card: PayoutCreditCard {
+    ///             number: Some("4242424242424242".to_owned()),
+    ///             holder: Some("John Smith".to_owned()),
+    ///             exp_month: Some("10".to_owned()),
+    ///             exp_year: Some("2030".to_owned()),
+    ///         },
+    ///         recipient: None,
+    ///         additional_data: None,
+    ///     };
+    ///     let result: serde_json::Value = client.tokenize_recipient_card(request).await?;
+    ///     println!("{result}");
+    ///     Ok(())
+    /// }
+    /// ```
+    pub async fn tokenize_recipient_card(
+        &self,
+        req: RecipientTokenizationRequest,
+    ) -> Result<serde_json::Value, BepaidError> {
+        self.request_json(
+            Method::POST,
+            &self.gateway("/transactions/recipient_tokenizations"),
+            Some(&RequestEnvelope { request: req }),
+            Some("3"),
+        )
+        .await
     }
 }

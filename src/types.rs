@@ -2135,3 +2135,40 @@ pub struct ChargeRequest {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub additional_data: Option<ChargeAdditionalData>,
 }
+
+// ── gateway: recipient tokenization ──────────────────────────────────────────
+
+/// Additional data for recipient tokenization.
+#[derive(Debug, Clone, Serialize)]
+pub struct RecipientTokenizationAdditionalData {
+    /// The URL the request originates from.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub referer: Option<String>,
+}
+
+/// Tokenize a recipient's card for future payouts.
+///
+/// POST `/transactions/recipient_tokenizations` (X-API-Version 3). No money
+/// moves: the returned card token is used in
+/// [`PayoutRequest::recipient_credit_card`]. The response shape is not
+/// documented by bePaid as a typed object, so the raw JSON is returned.
+#[derive(Debug, Clone, Serialize)]
+pub struct RecipientTokenizationRequest {
+    /// Free-form description.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub description: Option<String>,
+    /// Merchant tracking id.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub tracking_id: Option<String>,
+    /// Billing address of the cardholder.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub recipient_billing_address: Option<BillingAddress>,
+    /// The card to tokenize.
+    pub recipient_credit_card: PayoutCreditCard,
+    /// The customer requesting the tokenization.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub recipient: Option<Customer>,
+    /// Additional data.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub additional_data: Option<RecipientTokenizationAdditionalData>,
+}

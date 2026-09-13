@@ -19,6 +19,11 @@ struct ApplePayValidateRequest<'a> {
     context: &'static str,
 }
 
+#[derive(serde::Serialize)]
+struct ApplePayPaymentRequest<'a> {
+    request: &'a str,
+}
+
 impl BepaidClient {
     /// Create a hosted checkout (redirect customer to `redirect_url`).
     pub async fn create_checkout(
@@ -116,6 +121,32 @@ impl BepaidClient {
                 token,
                 context: "merchant",
             }),
+            None,
+        )
+        .await
+    }
+
+    /// Submit an Apple Pay payment token after a successful session.
+    ///
+    /// The `token` is the base64-strict encoded `event.payment.token` object
+    /// returned by Apple Pay.  Response shape is undocumented by bePaid so
+    /// raw JSON is returned.
+    ///
+    /// # Example
+    ///
+    /// ```no_run
+    /// # async fn example(client: bepaid::BepaidClient) -> Result<(), bepaid::BepaidError> {
+    /// let result: serde_json::Value = client
+    ///     .apple_pay_payment("eyJ0eXAiOiJKV1QiLCJhbGciOiJSUzI1NiJ9...")
+    ///     .await?;
+    /// # Ok(())
+    /// # }
+    /// ```
+    pub async fn apple_pay_payment(&self, token: &str) -> Result<serde_json::Value, BepaidError> {
+        self.request_json(
+            Method::POST,
+            &self.checkout("/apple_pay/payment"),
+            Some(&ApplePayPaymentRequest { request: token }),
             None,
         )
         .await

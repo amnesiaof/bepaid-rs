@@ -4,8 +4,9 @@ use bepaid::{
         ApmConfirmRequest, ApmPaymentRequest, AuthorizationRequest, BalanceRequest,
         CancelSubscriptionRequest, CaptureRequest, ChargeCreditCard, ChargeRequest,
         CheckoutRequest, CreateTokenRequest, CustomerRecord, P2pRequest, PaymentRequest,
-        PayoutRequest, ProductCreateRequest, ProductUpdateRequest, RefundRequest,
-        ReportListRequest, ReportParams, SubscriptionCreateRequest, VoidRequest,
+        PayoutCreditCard, PayoutRequest, ProductCreateRequest, ProductUpdateRequest,
+        RecipientTokenizationRequest, RefundRequest, ReportListRequest, ReportParams,
+        SubscriptionCreateRequest, VoidRequest,
     },
     webhook::{
         parse_subscription_webhook, parse_webhook, verify_webhook_auth, verify_webhook_signature,
@@ -1399,4 +1400,67 @@ async fn charge_saved_card_happy_path() {
         .expect("charge should succeed");
     assert_eq!(t.uid, "1-310b0da80b");
     assert_eq!(t.status.as_deref(), Some("successful"));
+}
+
+#[tokio::test]
+async fn recipient_tokenization_happy_path() {
+    let server = MockServer::start().await;
+    Mock::given(method("POST"))
+        .and(path("/transactions/recipient_tokenizations"))
+        .and(wiremock::matchers::header("x-api-version", "3"))
+        .and(wiremock::matchers::header("authorization", AUTH))
+        .respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({
+            "transaction": {
+                "uid": "1-310b0da80b",
+                "status": "pending",
+                "recipient_credit_card": {"token": "tok_recipient"}
+            }
+        })))
+        .expect(1)
+        .mount(&server)
+        .await;
+
+    let c = client(&server);
+    let resp = c
+        .tokenize_recipient_card(RecipientTokenizationRequest {
+            description: Some("Tokenize card".into()),
+            tracking_id: None,
+            recipient_billing_address: None,
+            recipient_credit_card: PayoutCreditCard {
+                number: Some("4242424242424242".into()),
+                holder: Some("John Smith".into()),
+                exp_month: Some("10".into()),
+                exp_year: Some("2030".into()),
+            },
+            recipient: None,
+            additional_data: None,
+        })
+        .await
+        .expect("tokenization should succeed");
+
+    assert_eq!(resp["transaction"]["uid"], "1-310b0da80b");
+    assert_eq!(resp["transaction"]["status"], "pending");
+}
+
+#[tokio::test]
+async fn apple_pay_payment_happy_path() {
+    let server = MockServer::start().await;
+    Mock::given(method("POST"))
+        .and(path("/apple_pay/payment"))
+        .and(wiremock::matchers::header("authorization", AUTH))
+        .respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({
+            "Success": true,
+            "Model": null
+        })))
+        .expect(1)
+        .mount(&server)
+        .await;
+
+    let c = client(&server);
+    let resp = c
+        .apple_pay_payment("eyJ0eXAiOiJKV1QiLCJhbGciOiJSUzI1NiJ9...")
+        .await
+        .expect("apple pay payment should succeed");
+
+    assert_eq!(resp["Success"], true);
 }
