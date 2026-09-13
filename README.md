@@ -183,6 +183,15 @@ let ok = verify_webhook_auth(auth_header, "shop_id", "secret_key");
 let notification = parse_webhook(body)?;
 ```
 
+## Examples
+
+Ready-to-run programs under [`examples/`](examples/):
+
+| Example | Run |
+|---------|-----|
+| [`payment`](examples/payment.rs) | `SHOP_ID=363 SECRET_KEY=secret cargo run --example payment` |
+| [`subscriptions`](examples/subscriptions.rs) | `SHOP_ID=363 SECRET_KEY=secret cargo run --example subscriptions` |
+
 ## API coverage
 
 | Group         | Operations |
