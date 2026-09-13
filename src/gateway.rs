@@ -1,3 +1,7 @@
+//! Card payments, authorizations, captures, voids and refunds.
+//!
+//! See the methods on [`BepaidClient`].
+
 use reqwest::Method;
 
 use crate::client::BepaidClient;
@@ -16,6 +20,42 @@ struct RequestEnvelope<T> {
 
 impl BepaidClient {
     /// Create a payment. Returns tracking_id + uid.
+    ///
+    /// # Example
+    ///
+    /// ```no_run
+    /// use bepaid::BepaidClient;
+    /// use bepaid::types::{CreditCardRaw, PaymentRequest};
+    ///
+    /// #[tokio::main]
+    /// async fn main() -> Result<(), bepaid::BepaidError> {
+    ///     let client = BepaidClient::new("shop_id", "secret_key");
+    ///     let request = PaymentRequest {
+    ///         amount: "700".to_owned(), // minor units
+    ///         currency: "BYN".to_owned(),
+    ///         test: true,
+    ///         description: "Test payment".to_owned(),
+    ///         tracking_id: "order-123".to_owned(),
+    ///         language: None,
+    ///         notification_url: None,
+    ///         billing_address: None,
+    ///         credit_card: Some(CreditCardRaw {
+    ///             number: "4242424242424242".to_owned(),
+    ///             verification_value: "123".to_owned(),
+    ///             holder: "John Smith".to_owned(),
+    ///             exp_month: 10,
+    ///             exp_year: 2030,
+    ///             save_card: None,
+    ///             token: None,
+    ///         }),
+    ///         customer: None,
+    ///         additional_data: None,
+    ///     };
+    ///     let payment = client.create_payment(request).await?;
+    ///     println!("uid: {}", payment.uid);
+    ///     Ok(())
+    /// }
+    /// ```
     pub async fn create_payment(
         &self,
         req: PaymentRequest,
@@ -32,6 +72,43 @@ impl BepaidClient {
     }
 
     /// Create an authorization (may require 3-D Secure redirect).
+    ///
+    /// # Example
+    ///
+    /// ```no_run
+    /// use bepaid::BepaidClient;
+    /// use bepaid::types::{AuthorizationRequest, CreditCardRaw};
+    ///
+    /// #[tokio::main]
+    /// async fn main() -> Result<(), bepaid::BepaidError> {
+    ///     let client = BepaidClient::new("shop_id", "secret_key");
+    ///     let request = AuthorizationRequest {
+    ///         amount: 104,
+    ///         currency: "EUR".to_owned(),
+    ///         description: "Test authorization".to_owned(),
+    ///         payment_method_type: None,
+    ///         tracking_id: "order-124".to_owned(),
+    ///         test: Some(true),
+    ///         credit_card: Some(CreditCardRaw {
+    ///             number: "4242424242424242".to_owned(),
+    ///             verification_value: "123".to_owned(),
+    ///             holder: "John Smith".to_owned(),
+    ///             exp_month: 10,
+    ///             exp_year: 2030,
+    ///             save_card: None,
+    ///             token: None,
+    ///         }),
+    ///         customer: None,
+    ///         billing_address: None,
+    ///     };
+    ///     let authorization = client.create_authorization(request).await?;
+    ///     if let Some(url) = authorization.redirect_url {
+    ///         // send the customer to url for 3-D Secure, then poll the transaction
+    ///         println!("redirect: {url}");
+    ///     }
+    ///     Ok(())
+    /// }
+    /// ```
     pub async fn create_authorization(
         &self,
         req: AuthorizationRequest,

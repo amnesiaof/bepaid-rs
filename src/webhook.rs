@@ -4,6 +4,19 @@ use crate::types::{Subscription, WebhookNotification};
 
 /// Verify the Basic-auth credentials of a bePaid webhook sender.
 /// Always do this before trusting a notification payload.
+///
+/// # Example
+///
+/// ```
+/// use bepaid::webhook::verify_webhook_auth;
+///
+/// let ok = verify_webhook_auth(
+///     "Basic MzYzOjQ1NDU0ZTA4MzQzNGFhMzdyZmRmZA==",
+///     "363",
+///     "45454e083434aa37rfdfd",
+/// );
+/// assert!(ok);
+/// ```
 pub fn verify_webhook_auth(authorization_header: &str, shop_id: &str, secret_key: &str) -> bool {
     let expected = format!(
         "Basic {}",

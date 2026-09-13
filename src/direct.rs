@@ -1,3 +1,7 @@
+//! Alternative payment methods (APM) and their confirmations.
+//!
+//! See the methods on [`BepaidClient`].
+
 use reqwest::Method;
 
 use crate::client::BepaidClient;

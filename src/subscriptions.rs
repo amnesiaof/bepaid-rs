@@ -1,3 +1,7 @@
+//! Customers, plans and recurring subscriptions.
+//!
+//! See the methods on [`BepaidClient`].
+
 use reqwest::Method;
 
 use crate::client::BepaidClient;
@@ -58,6 +62,89 @@ impl BepaidClient {
 
     /// Create a subscription. Customer must then be redirected to
     /// `redirect_url` to enter card details and complete the first payment.
+    ///
+    /// # Example
+    ///
+    /// ```no_run
+    /// use bepaid::BepaidClient;
+    /// use bepaid::types::{
+    ///     CustomerRecord, PlanInterval, PlanItem, SubscriptionCreateRequest,
+    ///     SubscriptionCustomer, SubscriptionPlan,
+    /// };
+    ///
+    /// #[tokio::main]
+    /// async fn main() -> Result<(), bepaid::BepaidError> {
+    ///     let client = BepaidClient::new("shop_id", "secret_key");
+    ///     let customer = client
+    ///         .create_customer(CustomerRecord {
+    ///             id: None,
+    ///             first_name: Some("John".to_owned()),
+    ///             last_name: Some("Smith".to_owned()),
+    ///             address: None,
+    ///             city: None,
+    ///             country: None,
+    ///             zip: None,
+    ///             state: None,
+    ///             phone: None,
+    ///             email: Some("john@example.com".to_owned()),
+    ///             ip: Some("8.8.8.8".to_owned()),
+    ///             external_id: None,
+    ///         })
+    ///         .await?;
+    ///     let plan = client
+    ///         .create_plan(PlanItem {
+    ///             id: None,
+    ///             test: Some(true),
+    ///             title: Some("Pro".to_owned()),
+    ///             currency: Some("USD".to_owned()),
+    ///             language: None,
+    ///             plan: Some(PlanInterval {
+    ///                 amount: Some(990),
+    ///                 interval: Some(1),
+    ///                 interval_unit: Some("month".to_owned()),
+    ///                 visible_fields: None,
+    ///             }),
+    ///             trial: None,
+    ///             infinite: None,
+    ///             billing_cycles: None,
+    ///             number_payment_attempts: None,
+    ///             prevent_payments_at_night: None,
+    ///             created_at: None,
+    ///             updated_at: None,
+    ///             pay_url: None,
+    ///         })
+    ///         .await?;
+    ///     let subscription = client
+    ///         .create_subscription(SubscriptionCreateRequest {
+    ///             card: None,
+    ///             customer: Some(SubscriptionCustomer {
+    ///                 id: customer.id,
+    ///                 first_name: None,
+    ///                 last_name: None,
+    ///                 email: None,
+    ///             }),
+    ///             plan: SubscriptionPlan {
+    ///                 id: plan.id,
+    ///                 title: None,
+    ///                 currency: None,
+    ///                 plan: None,
+    ///                 trial: None,
+    ///             },
+    ///             tracking_id: Some("sub-1".to_owned()),
+    ///             device_id: None,
+    ///             return_url: Some("https://example.com/return".to_owned()),
+    ///             notification_url: None,
+    ///             dynamic_billing_descriptor: None,
+    ///             additional_data: None,
+    ///             settings: None,
+    ///         })
+    ///         .await?;
+    ///     if let Some(url) = subscription.redirect_url {
+    ///         println!("redirect customer to {url}");
+    ///     }
+    ///     Ok(())
+    /// }
+    /// ```
     pub async fn create_subscription(
         &self,
         req: SubscriptionCreateRequest,
