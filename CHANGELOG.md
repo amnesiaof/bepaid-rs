@@ -1,0 +1,59 @@
+# Changelog
+
+All notable changes to this project are documented in this file.
+
+The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
+and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+
+## [Unreleased]
+
+### Added
+
+- Runnable examples: `examples/payment.rs` (card flow with 3-D Secure),
+  `examples/subscriptions.rs` (customer → plan → subscription).
+
+## [0.4.0] - 2026-09-13
+
+### Added
+
+- Full rustdoc coverage: `#![warn(missing_docs)]` and doc comments on all
+  public items, crate-level docs and doctests.
+
+## [0.3.0] - 2026-09-13
+
+### Changed
+
+- `reqwest` 0.12 → 0.13 (default TLS backend is now rustls with
+  `rustls-platform-verifier`).
+- `base64` 0.22 → 0.23.
+
+## [0.2.0] - 2026-09-13
+
+### Added
+
+- Subscriptions service: `create_customer`, `get_customer`, `list_customers`,
+  `create_plan`, `get_plan`, `list_plans`, `create_subscription`,
+  `get_subscription`, `cancel_subscription`.
+- P2P transfers: `create_p2p`.
+- APM payment confirmation: `confirm_apm_payment`.
+- Subscription webhook parsing: `parse_subscription_webhook`.
+
+## [0.1.0] - 2026-09-13
+
+### Added
+
+- Async client (`BepaidClient`) for the bePaid API (bepaid.by) with HTTP Basic
+  authentication and optional `X-API-Version: 3` header.
+- Gateway operations: `create_payment`, `create_authorization`, `capture`,
+  `void`, `refund`, `get_transaction`.
+- Token API: `create_token`.
+- Checkout API: `create_checkout`, `get_checkout_status`,
+  `validate_apple_pay`.
+- Direct (APM) API: `create_apm_payment`, `apm_refund`, `apm_full_refund`.
+- Webhooks: `verify_webhook_auth`, `parse_webhook`.
+
+[Unreleased]: https://github.com/amnesiaof/bepaid-rs/compare/v0.4.0...HEAD
+[0.4.0]: https://github.com/amnesiaof/bepaid-rs/compare/v0.3.0...v0.4.0
+[0.3.0]: https://github.com/amnesiaof/bepaid-rs/compare/v0.2.0...v0.3.0
+[0.2.0]: https://github.com/amnesiaof/bepaid-rs/compare/v0.1.0...v0.2.0
+[0.1.0]: https://github.com/amnesiaof/bepaid-rs/releases/tag/v0.1.0
