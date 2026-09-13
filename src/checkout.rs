@@ -3,8 +3,7 @@ use reqwest::Method;
 use crate::client::BepaidClient;
 use crate::error::BepaidError;
 use crate::types::{
-    CheckoutEnvelope, CheckoutRequest, CheckoutResponse, CheckoutStatus,
-    CheckoutStatusEnvelope,
+    CheckoutEnvelope, CheckoutRequest, CheckoutResponse, CheckoutStatus, CheckoutStatusEnvelope,
 };
 
 #[derive(serde::Serialize)]
@@ -38,10 +37,7 @@ impl BepaidClient {
     }
 
     /// Get checkout / payment status by token.
-    pub async fn get_checkout_status(
-        &self,
-        token: &str,
-    ) -> Result<CheckoutStatus, BepaidError> {
+    pub async fn get_checkout_status(&self, token: &str) -> Result<CheckoutStatus, BepaidError> {
         let envelope: CheckoutStatusEnvelope = self
             .request_json(
                 Method::GET,

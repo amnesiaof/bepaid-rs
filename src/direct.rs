@@ -3,8 +3,8 @@ use reqwest::Method;
 use crate::client::BepaidClient;
 use crate::error::BepaidError;
 use crate::types::{
-    ApmPaymentEnvelope, ApmPaymentRequest, ApmPaymentResponse, ApmRefundEnvelope,
-    ApmRefundRequest, ApmRefundResponse,
+    ApmPaymentEnvelope, ApmPaymentRequest, ApmPaymentResponse, ApmRefundEnvelope, ApmRefundRequest,
+    ApmRefundResponse,
 };
 
 #[derive(serde::Serialize)]

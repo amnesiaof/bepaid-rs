@@ -21,7 +21,12 @@ impl BepaidClient {
         req: PaymentRequest,
     ) -> Result<PaymentResponse, BepaidError> {
         let envelope: TransactionEnvelope = self
-            .request_json(Method::POST, &self.gateway("/transactions/payments"), Some(&RequestEnvelope { request: req }), true)
+            .request_json(
+                Method::POST,
+                &self.gateway("/transactions/payments"),
+                Some(&RequestEnvelope { request: req }),
+                true,
+            )
             .await?;
         Ok(envelope.transaction)
     }
@@ -32,7 +37,12 @@ impl BepaidClient {
         req: AuthorizationRequest,
     ) -> Result<AuthorizationResponse, BepaidError> {
         let envelope: AuthorizationEnvelope = self
-            .request_json(Method::POST, &self.gateway("/transactions/authorizations"), Some(&RequestEnvelope { request: req }), true)
+            .request_json(
+                Method::POST,
+                &self.gateway("/transactions/authorizations"),
+                Some(&RequestEnvelope { request: req }),
+                true,
+            )
             .await?;
         Ok(envelope.transaction)
     }
@@ -40,7 +50,12 @@ impl BepaidClient {
     /// Capture previously authorized funds.
     pub async fn capture(&self, req: CaptureRequest) -> Result<CaptureResponse, BepaidError> {
         let envelope: CaptureEnvelope = self
-            .request_json(Method::POST, &self.gateway("/transactions/captures"), Some(&RequestEnvelope { request: req }), true)
+            .request_json(
+                Method::POST,
+                &self.gateway("/transactions/captures"),
+                Some(&RequestEnvelope { request: req }),
+                true,
+            )
             .await?;
         Ok(envelope.transaction)
     }
@@ -48,7 +63,12 @@ impl BepaidClient {
     /// Void a previously authorized transaction.
     pub async fn void(&self, req: VoidRequest) -> Result<VoidResponse, BepaidError> {
         let envelope: VoidEnvelope = self
-            .request_json(Method::POST, &self.gateway("/transactions/voids"), Some(&RequestEnvelope { request: req }), true)
+            .request_json(
+                Method::POST,
+                &self.gateway("/transactions/voids"),
+                Some(&RequestEnvelope { request: req }),
+                true,
+            )
             .await?;
         Ok(envelope.transaction)
     }
@@ -56,7 +76,12 @@ impl BepaidClient {
     /// Full or partial refund of a payment.
     pub async fn refund(&self, req: RefundRequest) -> Result<RefundResponse, BepaidError> {
         let envelope: RefundEnvelope = self
-            .request_json(Method::POST, &self.gateway("/transactions/refunds"), Some(&RequestEnvelope { request: req }), true)
+            .request_json(
+                Method::POST,
+                &self.gateway("/transactions/refunds"),
+                Some(&RequestEnvelope { request: req }),
+                true,
+            )
             .await?;
         Ok(envelope.transaction)
     }
@@ -64,7 +89,12 @@ impl BepaidClient {
     /// Get transaction status by uid.
     pub async fn get_transaction(&self, uid: &str) -> Result<Transaction, BepaidError> {
         let envelope: TransactionEnvelopeFull = self
-            .request_json(Method::GET, &self.gateway(&format!("/transactions/{uid}")), None::<&u8>, true)
+            .request_json(
+                Method::GET,
+                &self.gateway(&format!("/transactions/{uid}")),
+                None::<&u8>,
+                true,
+            )
             .await?;
         Ok(envelope.transaction)
     }

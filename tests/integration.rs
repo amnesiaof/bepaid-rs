@@ -13,8 +13,7 @@ use wiremock::{
 
 const SHOP_ID: &str = "363";
 const SECRET: &str = "45454e083434aa37rfdfd";
-const AUTH: &str =
-    "Basic MzYzOjQ1NDU0ZTA4MzQzNGFhMzdyZmRmZA==";
+const AUTH: &str = "Basic MzYzOjQ1NDU0ZTA4MzQzNGFhMzdyZmRmZA==";
 
 fn client(server: &MockServer) -> BepaidClient {
     let base = server.uri();
@@ -61,14 +60,12 @@ async fn create_payment_400_returns_api_error() {
     let server = MockServer::start().await;
     Mock::given(method("POST"))
         .and(path("/transactions/payments"))
-        .respond_with(
-            ResponseTemplate::new(400).set_body_json(serde_json::json!({
-                "response": {
-                    "message": "Validation failed",
-                    "errors": {"amount": ["can't be blank"]}
-                }
-            })),
-        )
+        .respond_with(ResponseTemplate::new(400).set_body_json(serde_json::json!({
+            "response": {
+                "message": "Validation failed",
+                "errors": {"amount": ["can't be blank"]}
+            }
+        })))
         .mount(&server)
         .await;
 
@@ -296,9 +293,7 @@ async fn get_transaction_parses_full_object() {
     assert_eq!(t.status.as_deref(), Some("successful"));
     assert_eq!(t.code.as_deref(), Some("S.0000"));
     assert_eq!(
-        t.credit_card
-            .as_ref()
-            .and_then(|cc| cc.brand.as_deref()),
+        t.credit_card.as_ref().and_then(|cc| cc.brand.as_deref()),
         Some("visa")
     );
     assert!(t.payment.is_some());
@@ -336,7 +331,10 @@ async fn create_token_happy_path() {
         .expect("token should succeed");
 
     assert_eq!(t.brand.as_deref(), Some("visa"));
-    assert_eq!(t.token.as_deref(), Some("7ba647e7013b5cb9df39f17c375783aef"));
+    assert_eq!(
+        t.token.as_deref(),
+        Some("7ba647e7013b5cb9df39f17c375783aef")
+    );
 }
 
 #[tokio::test]
