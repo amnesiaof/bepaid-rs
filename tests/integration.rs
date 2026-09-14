@@ -3,10 +3,10 @@ use bepaid::{
     types::{
         ApmConfirmRequest, ApmPaymentRequest, AuthorizationRequest, BalanceRequest,
         CancelSubscriptionRequest, CaptureRequest, ChargeCreditCard, ChargeRequest,
-        CheckoutRequest, CreateTokenRequest, CurrencyQueryRequest, CustomerRecord, P2pRequest,
-        PaymentRequest, PayoutCreditCard, PayoutRequest, ProductCreateRequest,
-        ProductUpdateRequest, RecipientTokenizationRequest, RefundRequest, ReportListRequest,
-        ReportParams, SubscriptionCreateRequest, VoidRequest,
+        CheckoutRequest, CreateTokenRequest, CurrencyQueryRequest, CustomerRecord, Fiscalization,
+        FiscalizationPosition, FiscalizationTax, P2pRequest, PaymentRequest, PayoutCreditCard,
+        PayoutRequest, ProductCreateRequest, ProductUpdateRequest, RecipientTokenizationRequest,
+        RefundRequest, ReportListRequest, ReportParams, SubscriptionCreateRequest, VoidRequest,
     },
     webhook::{
         parse_subscription_webhook, parse_webhook, verify_webhook_auth, verify_webhook_signature,
@@ -55,6 +55,8 @@ async fn create_payment_happy_path() {
             credit_card: None,
             customer: None,
             additional_data: None,
+            encrypted_data: None,
+            fiscalization: None,
         })
         .await;
 
@@ -96,6 +98,80 @@ async fn create_payment_serializes_h2h_fields() {
         credit_card: None,
         customer: None,
         additional_data: None,
+        encrypted_data: None,
+        fiscalization: None,
+    })
+    .await
+    .expect("payment should succeed");
+}
+
+#[tokio::test]
+async fn create_payment_serializes_fiscalization_and_encrypted_data() {
+    let server = MockServer::start().await;
+    Mock::given(method("POST"))
+        .and(path("/transactions/payments"))
+        .and(body_partial_json(serde_json::json!({
+            "request": {
+                "encrypted_data": "jwe-blob",
+                "fiscalization": {
+                    "external_id": "fisc-1",
+                    "positions": [{
+                        "name": "Product",
+                        "type": "service",
+                        "amount": 100,
+                        "quantity": 1.0,
+                        "measure_unit_code": 796,
+                        "description": "Desc",
+                        "untaxed": false,
+                        "nomenclature_code": "code-1",
+                        "taxes": [{"id": "vat-12", "percent": "12", "type": "vat", "inclusive": true}]
+                    }]
+                }
+            }
+        })))
+        .respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({
+            "transaction": {"tracking_id": "tid", "uid": "uid1"}
+        })))
+        .expect(1)
+        .mount(&server)
+        .await;
+
+    let c = client(&server);
+    c.create_payment(PaymentRequest {
+        amount: "700".into(),
+        currency: "USD".into(),
+        test: true,
+        description: "Test transaction".into(),
+        tracking_id: "tid".into(),
+        language: None,
+        notification_url: None,
+        verification_url: None,
+        return_url: None,
+        billing_address: None,
+        credit_card: None,
+        customer: None,
+        additional_data: None,
+        encrypted_data: Some("jwe-blob".into()),
+        fiscalization: Some(Fiscalization {
+            external_id: "fisc-1".into(),
+            positions: vec![FiscalizationPosition {
+                name: "Product".into(),
+                position_type: "service".into(),
+                amount: 100,
+                quantity: 1.0,
+                measure_unit_code: 796,
+                description: Some("Desc".into()),
+                untaxed: false,
+                nomenclature_code: Some("code-1".into()),
+                taxes: Some(vec![FiscalizationTax {
+                    id: "vat-12".into(),
+                    percent: "12".into(),
+                    tax_type: "vat".into(),
+                    description: None,
+                    inclusive: true,
+                }]),
+            }],
+        }),
     })
     .await
     .expect("payment should succeed");
@@ -131,6 +207,8 @@ async fn create_payment_400_returns_api_error() {
             credit_card: None,
             customer: None,
             additional_data: None,
+            encrypted_data: None,
+            fiscalization: None,
         })
         .await
         .expect_err("should error");

@@ -38,6 +38,8 @@
 //!         credit_card: None,
 //!         customer: None,
 //!         additional_data: None,
+//!         encrypted_data: None,
+//!         fiscalization: None,
 //!     };
 //!     let payment = client.create_payment(request).await?;
 //!     println!("uid: {}", payment.uid);

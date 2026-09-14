@@ -278,6 +278,59 @@ pub struct AvsCvcVerification {
 
 // ── gateway: create payment ───────────────────────────────────────────────────
 
+/// Tax line of a fiscalized position (KZT fiscalization).
+#[derive(Debug, Clone, Serialize)]
+pub struct FiscalizationTax {
+    /// Tax internal id.
+    pub id: String,
+    /// Tax rate, e.g. `"12"`.
+    pub percent: String,
+    /// Tax type, e.g. `vat`.
+    #[serde(rename = "type")]
+    pub tax_type: String,
+    /// Free-form tax description.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub description: Option<String>,
+    /// Whether the tax is included in the position amount.
+    pub inclusive: bool,
+}
+
+/// One itemized position of a fiscalized KZT payment.
+#[derive(Debug, Clone, Serialize)]
+pub struct FiscalizationPosition {
+    /// Product name.
+    pub name: String,
+    /// Position type, e.g. `service`.
+    #[serde(rename = "type")]
+    pub position_type: String,
+    /// Position amount in minor units.
+    pub amount: i64,
+    /// Quantity.
+    pub quantity: f64,
+    /// OKEI measure unit code, e.g. `796`.
+    pub measure_unit_code: i64,
+    /// Free-form position description.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub description: Option<String>,
+    /// Whether the position is untaxed.
+    pub untaxed: bool,
+    /// Product nomenclature code.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub nomenclature_code: Option<String>,
+    /// Applied taxes.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub taxes: Option<Vec<FiscalizationTax>>,
+}
+
+/// KZT fiscalization payload sent alongside the `credit_card` data.
+#[derive(Debug, Clone, Serialize)]
+pub struct Fiscalization {
+    /// Merchant-side fiscalization id.
+    pub external_id: String,
+    /// Itemized positions.
+    pub positions: Vec<FiscalizationPosition>,
+}
+
 /// Card payment request. `amount` is a string in minor units, e.g. `"700"`.
 #[derive(Debug, Clone, Serialize)]
 pub struct PaymentRequest {
@@ -316,6 +369,13 @@ pub struct PaymentRequest {
     /// Extra data (browser, contracts for tokenization).
     #[serde(skip_serializing_if = "Option::is_none")]
     pub additional_data: Option<AdditionalData>,
+    /// Encrypted card data (JWE) for client-side encryption — mutually
+    /// exclusive with `credit_card`.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub encrypted_data: Option<String>,
+    /// KZT fiscalization payload.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub fiscalization: Option<Fiscalization>,
 }
 
 /// Minimal response of a successful payment creation.

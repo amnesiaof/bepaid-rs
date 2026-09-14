@@ -60,6 +60,8 @@ async fn main() -> Result<(), bepaid::BepaidError> {
                 referer: None,
                 extra: None,
             }),
+            encrypted_data: None,
+            fiscalization: None,
         })
         .await?;
 
