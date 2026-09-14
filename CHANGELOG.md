@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.6.1] - 2026-09-14
+
+### Changed
+
+- `PaymentRequest` gains `verification_url` and `return_url` for 3-D Secure
+  handling in server-to-server (H2H) payments.
+
+### Added
+
+- Runnable example: `examples/h2h.rs` (server-to-server card payment).
+
 ## [0.6.0] - 2026-09-14
 
 ### Added
@@ -76,7 +87,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Direct (APM) API: `create_apm_payment`, `apm_refund`, `apm_full_refund`.
 - Webhooks: `verify_webhook_auth`, `parse_webhook`.
 
-[Unreleased]: https://github.com/amnesiaof/bepaid-rs/compare/v0.6.0...HEAD
+[Unreleased]: https://github.com/amnesiaof/bepaid-rs/compare/v0.6.1...HEAD
+[0.6.1]: https://github.com/amnesiaof/bepaid-rs/compare/v0.6.0...v0.6.1
 [0.6.0]: https://github.com/amnesiaof/bepaid-rs/compare/v0.5.0...v0.6.0
 [0.5.0]: https://github.com/amnesiaof/bepaid-rs/compare/v0.4.0...v0.5.0
 [0.4.0]: https://github.com/amnesiaof/bepaid-rs/compare/v0.3.0...v0.4.0
