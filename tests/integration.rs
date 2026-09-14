@@ -3,10 +3,11 @@ use bepaid::{
     types::{
         ApmConfirmRequest, ApmPaymentRequest, AuthorizationRequest, BalanceRequest,
         CancelSubscriptionRequest, CaptureRequest, ChargeCreditCard, ChargeRequest,
-        CheckoutRequest, CreateTokenRequest, CurrencyQueryRequest, CustomerRecord, Fiscalization,
-        FiscalizationPosition, FiscalizationTax, P2pRequest, PaymentRequest, PayoutCreditCard,
-        PayoutRequest, ProductCreateRequest, ProductUpdateRequest, RecipientTokenizationRequest,
-        RefundRequest, ReportListRequest, ReportParams, SubscriptionCreateRequest, VoidRequest,
+        CheckoutRequest, CreateTokenRequest, CurrencyQueryRequest, CustomerRecord, EripDevice,
+        Fiscalization, FiscalizationPosition, FiscalizationTax, P2pRequest, PaymentRequest,
+        PayoutCreditCard, PayoutRequest, ProductCreateRequest, ProductUpdateRequest,
+        RecipientTokenizationRequest, RefundRequest, ReportListRequest, ReportParams,
+        SubscriptionCreateRequest, VoidRequest,
     },
     webhook::{
         parse_subscription_webhook, parse_webhook, verify_webhook_auth, verify_webhook_signature,
@@ -669,6 +670,93 @@ async fn apm_payment_happy_path() {
 }
 
 #[tokio::test]
+async fn apm_payment_constructors_serialize() {
+    let requests = [
+        ApmPaymentRequest::erip(1000, "BYN", "123", "99999999"),
+        ApmPaymentRequest::mts_money(100, "BYN", "375295222222", "accept"),
+        ApmPaymentRequest::krok(220, "BYN", "https://example.com/return"),
+        ApmPaymentRequest::qiwi_terminal(1000, "RUB", "test_account_123"),
+    ];
+    let methods = [
+        serde_json::json!({ "type": "erip", "account_number": "123", "service_no": "99999999" }),
+        serde_json::json!({ "type": "mts_money", "confirm_agreement": "accept" }),
+        serde_json::json!({ "type": "krok" }),
+        serde_json::json!({ "type": "qiwi_terminal", "account": "test_account_123" }),
+    ];
+
+    let server = MockServer::start().await;
+    let c = client(&server);
+    for (req, method_payload) in requests.iter().zip(methods.iter()) {
+        Mock::given(method("POST"))
+            .and(path("/beyag/transactions/payments"))
+            .and(body_partial_json(serde_json::json!({
+                "request": {
+                    "amount": req.amount,
+                    "currency": req.currency,
+                    "payment_method": method_payload,
+                }
+            })))
+            .respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({
+                "transaction": { "uid": "u", "type": "payment", "status": "pending" }
+            })))
+            .expect(1)
+            .mount(&server)
+            .await;
+        let t = c
+            .create_apm_payment(req.clone())
+            .await
+            .expect("apm should succeed");
+        assert_eq!(t.status.as_deref(), Some("pending"));
+    }
+
+    let req = ApmPaymentRequest {
+        payment_method: serde_json::json!({
+            "type": "erip",
+            "account_number": "123",
+            "service_no": "99999999",
+            "erip_devices": [EripDevice {
+                name: "Холодная вода".into(),
+                item_unit: "м3".into(),
+                rank: "4".into(),
+                value: "1234".into(),
+                rate: "0.4392".into(),
+            }],
+        }),
+        ..ApmPaymentRequest::erip(2000, "BYN", "123", "99999999")
+    };
+    Mock::given(method("POST"))
+        .and(path("/beyag/transactions/payments"))
+        .and(body_partial_json(serde_json::json!({
+            "request": {
+                "amount": 2000,
+                "currency": "BYN",
+                "payment_method": {
+                    "type": "erip",
+                    "account_number": "123",
+                    "service_no": "99999999",
+                    "erip_devices": [
+                        {
+                            "name": "Холодная вода",
+                            "item_unit": "м3",
+                            "rank": "4",
+                            "value": "1234",
+                            "rate": "0.4392",
+                        }
+                    ],
+                },
+            }
+        })))
+        .respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({
+            "transaction": { "uid": "u", "type": "payment", "status": "pending" }
+        })))
+        .expect(1)
+        .mount(&server)
+        .await;
+    let t = c.create_apm_payment(req).await.expect("apm should succeed");
+    assert_eq!(t.status.as_deref(), Some("pending"));
+}
+
+#[tokio::test]
 async fn apm_refund_happy_path() {
     let server = MockServer::start().await;
     Mock::given(method("POST"))
@@ -1093,6 +1181,7 @@ async fn payout_happy_path() {
                 email: Some("john@example.com".into()),
                 device_id: None,
                 birth_date: Some("1990-10-20".into()),
+                phone: None,
             },
             sender: bepaid::types::Customer {
                 first_name: None,
@@ -1101,6 +1190,7 @@ async fn payout_happy_path() {
                 email: Some("john@example.com".into()),
                 device_id: None,
                 birth_date: Some("1990-10-20".into()),
+                phone: None,
             },
             recipient_billing_address: bepaid::types::BillingAddress {
                 first_name: None,

@@ -52,6 +52,9 @@ pub struct Customer {
     /// Birth date.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub birth_date: Option<String>,
+    /// Phone number.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub phone: Option<String>,
 }
 
 /// Browser data used for 3-D Secure / risk scoring.
@@ -955,6 +958,104 @@ pub struct ApmPaymentRequest {
     /// Additional method-specific data.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub additional_data: Option<serde_json::Value>,
+}
+
+/// Meter/device entry in an ERIP payment (`erip_devices`).
+#[derive(Debug, Clone, Serialize)]
+pub struct EripDevice {
+    /// Device name, e.g. `Холодная вода`.
+    pub name: String,
+    /// Unit of measurement, e.g. `м3`.
+    pub item_unit: String,
+    /// Display rank.
+    pub rank: String,
+    /// Current meter value.
+    pub value: String,
+    /// Tariff rate.
+    pub rate: String,
+}
+
+impl ApmPaymentRequest {
+    fn base(amount: i64, currency: &str, payment_method: serde_json::Value) -> Self {
+        Self {
+            amount,
+            currency: currency.to_owned(),
+            description: None,
+            email: None,
+            ip: None,
+            success_url: None,
+            order_id: None,
+            tracking_id: None,
+            notification_url: None,
+            expired_at: None,
+            test: None,
+            language: None,
+            return_url: None,
+            customer: None,
+            payment_method,
+            additional_data: None,
+        }
+    }
+
+    /// ERIP (ЕРИП) payment. `account_number` is the subscriber account,
+    /// `service_no` the ERIP service number. For richer payloads
+    /// (`service_info`, `receipt`, `erip_devices`) extend via struct-update
+    /// syntax and [`EripDevice`].
+    pub fn erip(amount: i64, currency: &str, account_number: &str, service_no: &str) -> Self {
+        Self::base(
+            amount,
+            currency,
+            serde_json::json!({
+                "type": "erip",
+                "account_number": account_number,
+                "service_no": service_no,
+            }),
+        )
+    }
+
+    /// MTS Money payment. `phone` must include the country code, e.g.
+    /// `375295222222`. `confirm_agreement` is one of `already_accepted`,
+    /// `accept`, `decline`.
+    pub fn mts_money(amount: i64, currency: &str, phone: &str, confirm_agreement: &str) -> Self {
+        let mut req = Self::base(
+            amount,
+            currency,
+            serde_json::json!({
+                "type": "mts_money",
+                "confirm_agreement": confirm_agreement,
+            }),
+        );
+        req.customer = Some(Customer {
+            first_name: None,
+            last_name: None,
+            ip: None,
+            email: None,
+            device_id: None,
+            birth_date: None,
+            phone: Some(phone.to_owned()),
+        });
+        req
+    }
+
+    /// KROK payment. `return_url` is where the customer lands after paying.
+    pub fn krok(amount: i64, currency: &str, return_url: &str) -> Self {
+        let mut req = Self::base(amount, currency, serde_json::json!({ "type": "krok" }));
+        req.return_url = Some(return_url.to_owned());
+        req
+    }
+
+    /// QIWI terminal payment. `account` is the buyer's id in the merchant
+    /// system (phone, email or customer id).
+    pub fn qiwi_terminal(amount: i64, currency: &str, account: &str) -> Self {
+        Self::base(
+            amount,
+            currency,
+            serde_json::json!({
+                "type": "qiwi_terminal",
+                "account": account,
+            }),
+        )
+    }
 }
 
 /// Response of an APM payment request.

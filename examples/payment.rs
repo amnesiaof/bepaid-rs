@@ -43,6 +43,7 @@ async fn main() -> Result<(), bepaid::BepaidError> {
                 email: Some("john@example.com".to_owned()),
                 device_id: None,
                 birth_date: None,
+                phone: None,
             }),
             billing_address: None,
         })
