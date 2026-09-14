@@ -3,10 +3,10 @@ use bepaid::{
     types::{
         ApmConfirmRequest, ApmPaymentRequest, AuthorizationRequest, BalanceRequest,
         CancelSubscriptionRequest, CaptureRequest, ChargeCreditCard, ChargeRequest,
-        CheckoutRequest, CreateTokenRequest, CustomerRecord, P2pRequest, PaymentRequest,
-        PayoutCreditCard, PayoutRequest, ProductCreateRequest, ProductUpdateRequest,
-        RecipientTokenizationRequest, RefundRequest, ReportListRequest, ReportParams,
-        SubscriptionCreateRequest, VoidRequest,
+        CheckoutRequest, CreateTokenRequest, CurrencyQueryRequest, CustomerRecord, P2pRequest,
+        PaymentRequest, PayoutCreditCard, PayoutRequest, ProductCreateRequest,
+        ProductUpdateRequest, RecipientTokenizationRequest, RefundRequest, ReportListRequest,
+        ReportParams, SubscriptionCreateRequest, VoidRequest,
     },
     webhook::{
         parse_subscription_webhook, parse_webhook, verify_webhook_auth, verify_webhook_signature,
@@ -1005,6 +1005,51 @@ async fn apm_balance_happy_path() {
 
     assert_eq!(b.status.as_deref(), Some("Successful"));
     assert_eq!(b.amount, Some(1290092162));
+}
+
+#[tokio::test]
+async fn currency_query_happy_path() {
+    let server = MockServer::start().await;
+    Mock::given(method("POST"))
+        .and(path("/beyag/currencies"))
+        .and(wiremock::matchers::header("authorization", AUTH))
+        .respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({
+            "status": "Successful",
+            "code": "S.0000",
+            "friendly_message": "Successfully processed",
+            "gateway_id": 1234,
+            "account": "40701810842020395221",
+            "country": "GB",
+            "currency": "TRX",
+            "provider_info": {
+                "currency": "TRX",
+                "alias": "Tron",
+                "allowDeposit": true,
+                "allowWithdrawal": true,
+                "priceUSD": "0.05963000",
+                "networks": [{"name": "tron"}]
+            }
+        })))
+        .expect(1)
+        .mount(&server)
+        .await;
+
+    let c = client(&server);
+    let info = c
+        .get_currencies(CurrencyQueryRequest {
+            gateway_id: 1234,
+            account: Some("40701810842020395221".into()),
+            country: Some("GB".into()),
+        })
+        .await
+        .expect("currency query should succeed");
+
+    assert_eq!(info.status.as_deref(), Some("Successful"));
+    assert_eq!(info.currency.as_deref(), Some("TRX"));
+    assert_eq!(
+        info.provider_info.as_ref().unwrap()["networks"][0]["name"],
+        serde_json::json!("tron")
+    );
 }
 
 #[tokio::test]

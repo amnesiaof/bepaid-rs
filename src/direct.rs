@@ -9,7 +9,8 @@ use crate::error::BepaidError;
 use crate::types::{
     ApmConfirmEnvelope, ApmConfirmRequest, ApmConfirmResponse, ApmPaymentEnvelope,
     ApmPaymentRequest, ApmPaymentResponse, ApmRefundEnvelope, ApmRefundRequest, ApmRefundResponse,
-    BalanceRequest, BalanceResponse, SplitPaymentRequest, SplitPaymentResponse,
+    BalanceRequest, BalanceResponse, CurrencyInfo, CurrencyQueryRequest, SplitPaymentRequest,
+    SplitPaymentResponse,
 };
 
 #[derive(serde::Serialize)]
@@ -147,5 +148,40 @@ impl BepaidClient {
     pub async fn get_balance(&self, req: BalanceRequest) -> Result<BalanceResponse, BepaidError> {
         self.request_json(Method::POST, &self.api("/beyag/balance"), Some(&req), None)
             .await
+    }
+
+    /// Query which currencies an APM gateway account supports.
+    ///
+    /// # Example
+    ///
+    /// ```no_run
+    /// use bepaid::BepaidClient;
+    /// use bepaid::types::CurrencyQueryRequest;
+    ///
+    /// #[tokio::main]
+    /// async fn main() -> Result<(), bepaid::BepaidError> {
+    ///     let client = BepaidClient::new("shop_id", "secret_key");
+    ///     let info = client
+    ///         .get_currencies(CurrencyQueryRequest {
+    ///             gateway_id: 1234,
+    ///             account: Some("40701810842020395221".to_owned()),
+    ///             country: Some("GB".to_owned()),
+    ///         })
+    ///         .await?;
+    ///     println!("currency: {:?}", info.currency);
+    ///     Ok(())
+    /// }
+    /// ```
+    pub async fn get_currencies(
+        &self,
+        req: CurrencyQueryRequest,
+    ) -> Result<CurrencyInfo, BepaidError> {
+        self.request_json(
+            Method::POST,
+            &self.api("/beyag/currencies"),
+            Some(&req),
+            None,
+        )
+        .await
     }
 }

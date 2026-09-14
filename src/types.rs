@@ -2172,3 +2172,51 @@ pub struct RecipientTokenizationRequest {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub additional_data: Option<RecipientTokenizationAdditionalData>,
 }
+
+// ── APM currency query ─────────────────────────────────────────────────────────
+
+/// Query which currencies an APM gateway account supports. Sent without a
+/// `request` wrapper.
+#[derive(Debug, Clone, Serialize)]
+pub struct CurrencyQueryRequest {
+    /// bePaid gateway id.
+    pub gateway_id: i64,
+    /// Account number to query.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub account: Option<String>,
+    /// ISO 3166-1 alpha-2 country code.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub country: Option<String>,
+}
+
+/// Currencies an APM gateway account supports. Returned without an envelope.
+#[derive(Debug, Clone, Deserialize)]
+pub struct CurrencyInfo {
+    /// Response code, e.g. `S.0000`.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub code: Option<String>,
+    /// Status, e.g. `Successful`.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub status: Option<String>,
+    /// Raw status message.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub message: Option<String>,
+    /// Human-readable message.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub friendly_message: Option<String>,
+    /// bePaid gateway id.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub gateway_id: Option<i64>,
+    /// Queried account.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub account: Option<String>,
+    /// ISO 3166-1 alpha-2 country code.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub country: Option<String>,
+    /// ISO 4217 currency code.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub currency: Option<String>,
+    /// Provider-specific currency data (e.g. deposit/withdrawal allowances).
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub provider_info: Option<serde_json::Value>,
+}
