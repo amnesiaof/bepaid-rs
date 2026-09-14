@@ -10,8 +10,8 @@ use crate::types::{
     AuthorizationEnvelope, AuthorizationRequest, AuthorizationResponse, CaptureEnvelope,
     CaptureRequest, CaptureResponse, ChargeRequest, PaymentRequest, PaymentResponse,
     PayoutEnvelope, PayoutRequest, PayoutResponse, RecipientTokenizationRequest, RefundEnvelope,
-    RefundRequest, RefundResponse, Transaction, TransactionEnvelope, TransactionEnvelopeFull,
-    VoidEnvelope, VoidRequest, VoidResponse,
+    RefundRequest, RefundResponse, TrackingIdStatus, Transaction, TransactionEnvelope,
+    TransactionEnvelopeFull, VoidEnvelope, VoidRequest, VoidResponse,
 };
 
 #[derive(serde::Serialize)]
@@ -175,6 +175,36 @@ impl BepaidClient {
             )
             .await?;
         Ok(envelope.transaction)
+    }
+
+    /// Get transaction status by the merchant's tracking id.
+    ///
+    /// # Example
+    ///
+    /// ```no_run
+    /// use bepaid::BepaidClient;
+    ///
+    /// #[tokio::main]
+    /// async fn main() -> Result<(), bepaid::BepaidError> {
+    ///     let client = BepaidClient::new("shop_id", "secret_key");
+    ///     let status = client
+    ///         .get_transaction_by_tracking_id("order-123")
+    ///         .await?;
+    ///     println!("status: {}", status.transaction_status.unwrap_or_default());
+    ///     Ok(())
+    /// }
+    /// ```
+    pub async fn get_transaction_by_tracking_id(
+        &self,
+        tracking_id: &str,
+    ) -> Result<TrackingIdStatus, BepaidError> {
+        self.request_json(
+            Method::GET,
+            &self.gateway(&format!("/v2/transactions/tracking_id/{tracking_id}")),
+            None::<&u8>,
+            None,
+        )
+        .await
     }
 
     /// Create a card payout from the merchant balance.

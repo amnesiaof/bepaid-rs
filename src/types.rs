@@ -2220,3 +2220,35 @@ pub struct CurrencyInfo {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub provider_info: Option<serde_json::Value>,
 }
+
+// ── gateway: tracking-id status query ─────────────────────────────────────────
+
+/// CVC verification flags returned by the tracking-id status query.
+#[derive(Debug, Clone, Deserialize)]
+pub struct TrackingCvcVerification {
+    /// CVC verification result code.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub result_code: Option<String>,
+}
+
+/// Transaction status as returned by the tracking-id status query.
+#[derive(Debug, Clone, Deserialize)]
+pub struct TrackingIdStatus {
+    /// Unique transaction id.
+    pub uid: String,
+    /// Status, e.g. `approved`.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub transaction_status: Option<String>,
+    /// Transaction result code.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub result_code: Option<String>,
+    /// CVC verification flags.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub cvc_verification: Option<TrackingCvcVerification>,
+    /// Customer metadata of the transaction.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub customer: Option<Customer>,
+    /// Billing address of the transaction.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub billing_address: Option<BillingAddress>,
+}

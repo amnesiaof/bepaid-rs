@@ -306,6 +306,46 @@ async fn get_transaction_parses_full_object() {
 }
 
 #[tokio::test]
+async fn transaction_status_by_tracking_id_happy_path() {
+    let server = MockServer::start().await;
+    Mock::given(method("GET"))
+        .and(path("/v2/transactions/tracking_id/order-123"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({
+            "uid": "54c70f9b-e6e5-4b5a-bda2-fe6980e44bf0",
+            "transaction_status": "approved",
+            "result_code": "0",
+            "cvc_verification": {"result_code": "1"},
+            "customer": {"ip": null, "email": null},
+            "billing_address": {
+                "first_name": "John",
+                "last_name": "Doe",
+                "address": "1st Street",
+                "country": "UA",
+                "city": "Denver",
+                "zip": "96002",
+                "state": "12",
+                "phone": "4567898765467"
+            }
+        })))
+        .expect(1)
+        .mount(&server)
+        .await;
+
+    let c = client(&server);
+    let s = c
+        .get_transaction_by_tracking_id("order-123")
+        .await
+        .expect("query should succeed");
+
+    assert_eq!(s.uid, "54c70f9b-e6e5-4b5a-bda2-fe6980e44bf0");
+    assert_eq!(s.transaction_status.as_deref(), Some("approved"));
+    assert_eq!(
+        s.billing_address.as_ref().and_then(|b| b.city.as_deref()),
+        Some("Denver")
+    );
+}
+
+#[tokio::test]
 async fn create_token_happy_path() {
     let server = MockServer::start().await;
     Mock::given(method("POST"))
