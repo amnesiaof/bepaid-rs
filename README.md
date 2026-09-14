@@ -2,16 +2,17 @@
 
 Async Rust client for the [bePaid payment API](https://docs.bepaid.by) (bepaid.by).
 
-Covers the Gateway API (card payments, tokenization, capture, void, refunds,
-including payouts), the hosted Checkout API, the Direct/APM API (alternative
-payment methods and balance queries), and the Merchant API (reports, channel
-balances).
+Covers the Gateway API (card payments, tokenization, saved-card charges,
+capture, void, refunds, payouts, recipient tokenization), the hosted Checkout
+API (checkout, payment token, Apple Pay), pay-by-link, the Direct/APM API
+(alternative payment methods, balance and currency queries, split payments),
+and the Merchant API (reports, channel balances).
 
 ## Install
 
 ```toml
 [dependencies]
-bepaid = "0.5"
+bepaid = "0.6"
 ```
 
 Also needs a Tokio runtime (the client is async):
@@ -198,13 +199,14 @@ Ready-to-run programs under [`examples/`](examples/):
 
 | Group         | Operations |
 |---------------|------------|
-| Gateway       | `create_payment`, `create_authorization`, `capture`, `void`, `refund`, `get_transaction`, `create_p2p`, `create_payout` |
+| Gateway       | `create_payment`, `create_authorization`, `capture`, `void`, `refund`, `get_transaction`, `get_transaction_by_tracking_id`, `create_p2p`, `create_payout`, `charge_saved_card`, `tokenize_recipient_card` |
 | Tokens        | `create_token` |
-| Checkout      | `create_checkout`, `get_checkout_status`, `validate_apple_pay` |
-| Direct        | `create_apm_payment`, `apm_refund`, `apm_full_refund`, `confirm_apm_payment`, `get_balance` |
-| Subscriptions | `create_customer`, `get_customer`, `list_customers`, `create_plan`, `get_plan`, `list_plans`, `create_subscription`, `get_subscription`, `cancel_subscription` |
+| Checkout      | `create_checkout`, `get_checkout_status`, `validate_apple_pay`, `create_payment_token`, `apple_pay_payment` |
+| Direct        | `create_apm_payment`, `apm_refund`, `apm_full_refund`, `confirm_apm_payment`, `get_balance`, `get_currencies`, `create_split_payment` |
+| Pay-by-link   | `create_product`, `list_products`, `get_product`, `update_product` |
+| Subscriptions | `create_customer`, `get_customer`, `list_customers`, `create_plan`, `get_plan`, `list_plans`, `create_subscription`, `get_subscription`, `cancel_subscription`, `get_plan_payment_link` |
 | Merchant      | `get_reports`, `get_report_count`, `get_channel_balances` |
-| Webhooks      | verification + payload parsing (transaction & subscription) |
+| Webhooks      | verification (Basic auth + RSA `Content-Signature`) + payload parsing (transaction & subscription) |
 
 ## License
 
