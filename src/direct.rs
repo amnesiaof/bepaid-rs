@@ -8,9 +8,11 @@ use crate::client::BepaidClient;
 use crate::error::BepaidError;
 use crate::types::{
     ApmConfirmEnvelope, ApmConfirmRequest, ApmConfirmResponse, ApmPaymentEnvelope,
-    ApmPaymentRequest, ApmPaymentResponse, ApmRefundEnvelope, ApmRefundRequest, ApmRefundResponse,
-    BalanceRequest, BalanceResponse, CurrencyInfo, CurrencyQueryRequest, SplitPaymentRequest,
-    SplitPaymentResponse,
+    ApmPaymentRequest, ApmPaymentResponse, ApmPayoutEnvelope, ApmPayoutRequest, ApmPayoutResponse,
+    ApmRefundEnvelope, ApmRefundRequest, ApmRefundResponse, BalanceRequest, BalanceResponse,
+    CheckupRequest, CurrencyInfo, CurrencyQueryRequest, ProofEnvelope, ProofRequest, ProofResponse,
+    SplitPaymentRequest, SplitPaymentResponse, Transaction, TransactionEnvelopeFull,
+    TransactionListEnvelope,
 };
 
 #[derive(serde::Serialize)]
@@ -92,6 +94,81 @@ impl BepaidClient {
             )
             .await?;
         Ok(envelope.response)
+    }
+
+    /// Get the current status of an APM transaction by uid.
+    pub async fn get_apm_transaction(&self, uid: &str) -> Result<Transaction, BepaidError> {
+        let envelope: TransactionEnvelopeFull = self
+            .request_json(
+                Method::GET,
+                &self.api(&format!("/beyag/transactions/{uid}")),
+                None::<&u8>,
+                None,
+            )
+            .await?;
+        Ok(envelope.transaction)
+    }
+
+    /// Get APM transactions by the merchant's tracking id.
+    pub async fn get_apm_transactions_by_tracking_id(
+        &self,
+        tracking_id: &str,
+    ) -> Result<Vec<Transaction>, BepaidError> {
+        let envelope: TransactionListEnvelope = self
+            .request_json(
+                Method::GET,
+                &self.api(&format!("/beyag/transactions/tracking_id/{tracking_id}")),
+                None::<&u8>,
+                None,
+            )
+            .await?;
+        Ok(envelope.transactions)
+    }
+
+    /// Payout an APM payment method (`POST /beyag/transactions/payouts`).
+    pub async fn apm_payout(
+        &self,
+        req: ApmPayoutRequest,
+    ) -> Result<ApmPayoutResponse, BepaidError> {
+        let envelope: ApmPayoutEnvelope = self
+            .request_json(
+                Method::POST,
+                &self.api("/beyag/transactions/payouts"),
+                Some(&RequestEnvelope { request: req }),
+                None,
+            )
+            .await?;
+        Ok(envelope.transaction)
+    }
+
+    /// Submit proof of payment for an APM transaction.
+    pub async fn apm_proof(
+        &self,
+        uid: &str,
+        req: ProofRequest,
+    ) -> Result<ProofResponse, BepaidError> {
+        let envelope: ProofEnvelope = self
+            .request_json(
+                Method::POST,
+                &self.api(&format!("/beyag/transactions/{uid}/proof")),
+                Some(&RequestEnvelope { request: req }),
+                None,
+            )
+            .await?;
+        Ok(envelope.transaction)
+    }
+
+    /// Run a pre-authorization risk check on a card.
+    pub async fn checkup(&self, req: CheckupRequest) -> Result<Transaction, BepaidError> {
+        let envelope: TransactionEnvelopeFull = self
+            .request_json(
+                Method::POST,
+                &self.gateway("/transactions/checkups"),
+                Some(&RequestEnvelope { request: req }),
+                Some("3"),
+            )
+            .await?;
+        Ok(envelope.transaction)
     }
 
     /// Split a payment among several shops in one request. The `split` map in

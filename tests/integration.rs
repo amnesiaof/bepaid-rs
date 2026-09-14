@@ -1,13 +1,13 @@
 use bepaid::{
     BepaidClient, BepaidError,
     types::{
-        ApmConfirmRequest, ApmPaymentRequest, AuthorizationRequest, BalanceRequest,
-        CancelSubscriptionRequest, CaptureRequest, ChargeCreditCard, ChargeRequest,
-        CheckoutRequest, CreateTokenRequest, CurrencyQueryRequest, CustomerRecord, EripDevice,
-        Fiscalization, FiscalizationPosition, FiscalizationTax, P2pRequest, PaymentRequest,
-        PayoutCreditCard, PayoutRequest, ProductCreateRequest, ProductUpdateRequest,
-        RecipientTokenizationRequest, RefundRequest, ReportListRequest, ReportParams,
-        SubscriptionCreateRequest, VoidRequest,
+        ApmConfirmRequest, ApmPaymentRequest, ApmPayoutRequest, AuthorizationRequest,
+        BalanceRequest, CancelSubscriptionRequest, CaptureRequest, ChargeCreditCard, ChargeRequest,
+        CheckoutRequest, CheckupRequest, CreateTokenRequest, CurrencyQueryRequest, CustomerRecord,
+        EripDevice, Fiscalization, FiscalizationPosition, FiscalizationTax, P2pRequest,
+        PaymentRequest, PayoutCreditCard, PayoutRequest, ProductCreateRequest,
+        ProductUpdateRequest, ProofDocument, ProofRequest, RecipientTokenizationRequest,
+        RefundRequest, ReportListRequest, ReportParams, SubscriptionCreateRequest, VoidRequest,
     },
     webhook::{
         parse_subscription_webhook, parse_webhook, verify_webhook_auth, verify_webhook_signature,
@@ -1758,4 +1758,228 @@ async fn apple_pay_payment_happy_path() {
         .expect("apple pay payment should succeed");
 
     assert_eq!(resp["Success"], true);
+}
+
+#[tokio::test]
+async fn get_apm_transaction_happy_path() {
+    let server = MockServer::start().await;
+    Mock::given(method("GET"))
+        .and(path("/beyag/transactions/apm1"))
+        .and(wiremock::matchers::header("authorization", AUTH))
+        .respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({
+            "transaction": {
+                "uid": "apm1",
+                "type": "payment",
+                "status": "successful",
+                "amount": 100,
+                "currency": "BYN"
+            }
+        })))
+        .expect(1)
+        .mount(&server)
+        .await;
+
+    let c = client(&server);
+    let t = c
+        .get_apm_transaction("apm1")
+        .await
+        .expect("status should succeed");
+
+    assert_eq!(t.status.as_deref(), Some("successful"));
+    assert_eq!(t.amount, Some(100));
+}
+
+#[tokio::test]
+async fn get_apm_transactions_by_tracking_id_happy_path() {
+    let server = MockServer::start().await;
+    Mock::given(method("GET"))
+        .and(path("/beyag/transactions/tracking_id/tracking_1"))
+        .and(wiremock::matchers::header("authorization", AUTH))
+        .respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({
+            "transactions": [
+                {"uid": "apm1", "type": "payment", "status": "successful"},
+                {"uid": "apm2", "type": "payment", "status": "failed"}
+            ]
+        })))
+        .expect(1)
+        .mount(&server)
+        .await;
+
+    let c = client(&server);
+    let ts = c
+        .get_apm_transactions_by_tracking_id("tracking_1")
+        .await
+        .expect("status should succeed");
+
+    let uids: Vec<_> = ts.iter().map(|t| t.uid.as_str()).collect();
+    assert_eq!(uids, vec!["apm1", "apm2"]);
+}
+
+#[tokio::test]
+async fn apm_payout_happy_path() {
+    let server = MockServer::start().await;
+    Mock::given(method("POST"))
+        .and(path("/beyag/transactions/payouts"))
+        .and(body_partial_json(serde_json::json!({
+            "request": {
+                "amount": 100,
+                "currency": "USD",
+                "description": "payout",
+                "method": {"type": "ad_payments"}
+            }
+        })))
+        .respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({
+            "transaction": {
+                "uid": "pay1",
+                "type": "payout",
+                "status": "successful",
+                "amount": 100,
+                "currency": "USD",
+                "payout": {"status": "successful", "gateway_id": 85}
+            }
+        })))
+        .expect(1)
+        .mount(&server)
+        .await;
+
+    let c = client(&server);
+    let p = c
+        .apm_payout(ApmPayoutRequest {
+            amount: 100,
+            currency: "USD".into(),
+            description: "payout".into(),
+            test: None,
+            tracking_id: None,
+            ip: None,
+            language: None,
+            notification_url: None,
+            verification_url: None,
+            return_url: None,
+            customer: None,
+            method: serde_json::json!({"type": "ad_payments"}),
+            additional_data: None,
+        })
+        .await
+        .expect("payout should succeed");
+
+    assert_eq!(p.status.as_deref(), Some("successful"));
+    let payout = p.payout.as_ref().expect("payout details");
+    assert_eq!(payout["gateway_id"], 85);
+}
+
+#[tokio::test]
+async fn apm_proof_happy_path() {
+    let server = MockServer::start().await;
+    Mock::given(method("POST"))
+        .and(path("/beyag/transactions/apm1/proof"))
+        .and(body_partial_json(serde_json::json!({
+            "request": {
+                "amount": 71267,
+                "currency": "USD",
+                "document": {
+                    "content_type": "application/pdf",
+                    "file_name": "proof.pdf",
+                    "file_size": 12345,
+                    "content": "base64...",
+                    "checksum": "sha256..."
+                }
+            }
+        })))
+        .respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({
+            "transaction": {
+                "uid": "pr1",
+                "parent_uid": "apm1",
+                "type": "proof",
+                "status": "successful",
+                "amount": 71267,
+                "currency": "USD",
+                "proof": {"message": "Proof was successfully processed."}
+            }
+        })))
+        .expect(1)
+        .mount(&server)
+        .await;
+
+    let c = client(&server);
+    let r = c
+        .apm_proof(
+            "apm1",
+            ProofRequest {
+                skip_duplicate_check: None,
+                amount: 71267,
+                currency: "USD".into(),
+                transaction_reference: None,
+                document: ProofDocument {
+                    content_type: "application/pdf".into(),
+                    file_name: "proof.pdf".into(),
+                    file_size: 12345,
+                    content: "base64...".into(),
+                    checksum: "sha256...".into(),
+                },
+            },
+        )
+        .await
+        .expect("proof should succeed");
+
+    assert_eq!(r.status.as_deref(), Some("successful"));
+    assert_eq!(r.parent_uid.as_deref(), Some("apm1"));
+}
+
+#[tokio::test]
+async fn checkup_happy_path() {
+    let server = MockServer::start().await;
+    Mock::given(method("POST"))
+        .and(path("/transactions/checkups"))
+        .and(wiremock::matchers::header("x-api-version", "3"))
+        .and(body_partial_json(serde_json::json!({
+            "request": {
+                "amount": 100,
+                "currency": "USD",
+                "description": "checkup",
+                "tracking_id": "tracking_1",
+                "credit_card": {"token": "tok1"}
+            }
+        })))
+        .respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({
+            "transaction": {
+                "uid": "c1",
+                "type": "payment",
+                "status": "successful",
+                "amount": 100,
+                "currency": "USD"
+            }
+        })))
+        .expect(1)
+        .mount(&server)
+        .await;
+
+    let c = client(&server);
+    let t = c
+        .checkup(CheckupRequest {
+            amount: 100,
+            currency: "USD".into(),
+            description: "checkup".into(),
+            tracking_id: "tracking_1".into(),
+            language: None,
+            notification_url: None,
+            verification_url: None,
+            test: None,
+            credit_card: Some(ChargeCreditCard {
+                number: None,
+                verification_value: None,
+                holder: None,
+                exp_month: None,
+                exp_year: None,
+                token: Some("tok1".into()),
+                skip_three_d_secure_verification: None,
+            }),
+            customer: None,
+            billing_address: None,
+            additional_data: None,
+        })
+        .await
+        .expect("checkup should succeed");
+
+    assert_eq!(t.status.as_deref(), Some("successful"));
+    assert_eq!(t.amount, Some(100));
 }

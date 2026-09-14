@@ -2341,6 +2341,47 @@ pub struct RecipientTokenizationRequest {
     pub additional_data: Option<RecipientTokenizationAdditionalData>,
 }
 
+// ── gateway: risk checkup ──────────────────────────────────────────────────────
+
+/// Pre-authorization risk check (`POST /transactions/checkups`).
+///
+/// Validates a transaction against risk-management rules before processing.
+#[derive(Debug, Clone, Serialize)]
+pub struct CheckupRequest {
+    /// Amount in minor units.
+    pub amount: i64,
+    /// ISO 4217 currency code.
+    pub currency: String,
+    /// Free-form description.
+    pub description: String,
+    /// Merchant tracking id.
+    pub tracking_id: String,
+    /// ISO 639-1 language code.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub language: Option<String>,
+    /// Webhook notification URL.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub notification_url: Option<String>,
+    /// URL for successful payment verification.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub verification_url: Option<String>,
+    /// `true` to run in test mode.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub test: Option<bool>,
+    /// Card data or token.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub credit_card: Option<ChargeCreditCard>,
+    /// Customer metadata.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub customer: Option<Customer>,
+    /// Cardholder billing address.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub billing_address: Option<BillingAddress>,
+    /// Additional data (e.g. `{"referer": "..."}`).
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub additional_data: Option<serde_json::Value>,
+}
+
 // ── APM currency query ─────────────────────────────────────────────────────────
 
 /// Query which currencies an APM gateway account supports. Sent without a
@@ -2419,4 +2460,168 @@ pub struct TrackingIdStatus {
     /// Billing address of the transaction.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub billing_address: Option<BillingAddress>,
+}
+
+// ── APM: transaction status query ─────────────────────────────────────────────
+
+/// Envelope for `GET /beyag/transactions/tracking_id/{tracking_id}`.
+#[derive(Debug, Clone, Deserialize)]
+pub(crate) struct TransactionListEnvelope {
+    pub transactions: Vec<Transaction>,
+}
+
+// ── APM: payout ───────────────────────────────────────────────────────────────
+
+/// APM payout request (`POST /beyag/transactions/payouts`).
+///
+/// `method` must carry the method-specific parameters, e.g. `{"type": "ad_payments"}`.
+#[derive(Debug, Clone, Serialize)]
+pub struct ApmPayoutRequest {
+    /// Amount in minor units.
+    pub amount: i64,
+    /// ISO 4217 currency code.
+    pub currency: String,
+    /// Free-form description (max 255 chars).
+    pub description: String,
+    /// `true` to run in test mode.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub test: Option<bool>,
+    /// Merchant tracking id.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub tracking_id: Option<String>,
+    /// Customer IP.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub ip: Option<String>,
+    /// ISO 639-1 language code.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub language: Option<String>,
+    /// Webhook notification URL.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub notification_url: Option<String>,
+    /// URL for successful payment verification.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub verification_url: Option<String>,
+    /// URL the customer is returned to after the transaction.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub return_url: Option<String>,
+    /// Customer metadata.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub customer: Option<Customer>,
+    /// Method-specific parameters, e.g. `{"type": "ad_payments"}`.
+    pub method: serde_json::Value,
+    /// Additional method-specific data.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub additional_data: Option<serde_json::Value>,
+}
+
+/// APM payout response (`POST /beyag/transactions/payouts`).
+#[derive(Debug, Clone, Deserialize)]
+pub struct ApmPayoutResponse {
+    /// Unique transaction id.
+    pub uid: Option<String>,
+    /// Transaction type, e.g. `payout`.
+    #[serde(rename = "type")]
+    pub tx_type: Option<String>,
+    /// Transaction status, e.g. `successful`.
+    pub status: Option<String>,
+    /// Amount in minor units.
+    pub amount: Option<i64>,
+    /// ISO 4217 currency code.
+    pub currency: Option<String>,
+    /// Free-form description.
+    pub description: Option<String>,
+    /// Creation timestamp (ISO 8601).
+    pub created_at: Option<String>,
+    /// Last update timestamp (ISO 8601).
+    pub updated_at: Option<String>,
+    /// Payout method type.
+    pub method_type: Option<String>,
+    /// Receipt URL.
+    pub receipt_url: Option<String>,
+    /// Human-readable message.
+    pub message: Option<String>,
+    /// Merchant tracking id.
+    pub tracking_id: Option<String>,
+    /// `true` if the transaction ran in test mode.
+    pub test: Option<bool>,
+    /// ISO 639-1 language code.
+    pub language: Option<String>,
+    /// Payment timestamp (ISO 8601).
+    pub paid_at: Option<String>,
+    /// Payout details (`status`, `gateway_id`, `ref_id`, `bank_code`, `rrn`, `message`).
+    pub payout: Option<serde_json::Value>,
+    /// Billing address.
+    pub billing_address: Option<serde_json::Value>,
+    /// Customer metadata.
+    pub customer: Option<serde_json::Value>,
+    /// Smart-routing verification result.
+    pub smart_routing_verification: Option<serde_json::Value>,
+    /// Additional data.
+    pub additional_data: Option<serde_json::Value>,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+pub(crate) struct ApmPayoutEnvelope {
+    pub transaction: ApmPayoutResponse,
+}
+
+// ── APM: proof of payment ─────────────────────────────────────────────────────
+
+/// A single document submitted as payment proof.
+#[derive(Debug, Clone, Serialize)]
+pub struct ProofDocument {
+    /// MIME type; one of `application/pdf`, `image/png`, `image/jpeg`.
+    pub content_type: String,
+    /// File name including extension.
+    pub file_name: String,
+    /// File size in bytes.
+    pub file_size: i64,
+    /// Base64-encoded file content (PDF documents must be unscanned originals).
+    pub content: String,
+    /// SHA-256 checksum of the document.
+    pub checksum: String,
+}
+
+/// Proof-of-payment request (`POST /beyag/transactions/{uid}/proof`).
+#[derive(Debug, Clone, Serialize)]
+pub struct ProofRequest {
+    /// Skip duplicate-check validation (default `false`).
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub skip_duplicate_check: Option<bool>,
+    /// Amount of the transaction being proven (minor units).
+    pub amount: i64,
+    /// ISO 4217 currency code.
+    pub currency: String,
+    /// Gateway transaction reference of the proof.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub transaction_reference: Option<String>,
+    /// The document itself.
+    pub document: ProofDocument,
+}
+
+/// Response of a proof submission (`POST /beyag/transactions/{uid}/proof`).
+#[derive(Debug, Clone, Deserialize)]
+pub struct ProofResponse {
+    /// Unique transaction id of the proof.
+    pub uid: Option<String>,
+    /// Uid of the original transaction.
+    pub parent_uid: Option<String>,
+    /// Transaction type, e.g. `proof`.
+    #[serde(rename = "type")]
+    pub tx_type: Option<String>,
+    /// Transaction status, e.g. `successful`.
+    pub status: Option<String>,
+    /// Human-readable message.
+    pub message: Option<String>,
+    /// Amount in minor units.
+    pub amount: Option<i64>,
+    /// ISO 4217 currency code.
+    pub currency: Option<String>,
+    /// Proof details (`message`, `ref_id`, `gateway_id`, `status`).
+    pub proof: Option<serde_json::Value>,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+pub(crate) struct ProofEnvelope {
+    pub transaction: ProofResponse,
 }
