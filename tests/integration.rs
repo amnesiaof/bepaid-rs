@@ -14,7 +14,7 @@ use bepaid::{
 };
 use wiremock::{
     Mock, MockServer, ResponseTemplate,
-    matchers::{method, path},
+    matchers::{body_partial_json, method, path},
 };
 
 const SHOP_ID: &str = "363";
@@ -49,6 +49,8 @@ async fn create_payment_happy_path() {
             tracking_id: "tracking_id_000".into(),
             language: None,
             notification_url: None,
+            verification_url: None,
+            return_url: None,
             billing_address: None,
             credit_card: None,
             customer: None,
@@ -59,6 +61,44 @@ async fn create_payment_happy_path() {
     let t = resp.expect("payment should succeed");
     assert_eq!(t.uid, "some_uid");
     assert_eq!(t.tracking_id.as_deref(), Some("tracking_id_000"));
+}
+
+#[tokio::test]
+async fn create_payment_serializes_h2h_fields() {
+    let server = MockServer::start().await;
+    Mock::given(method("POST"))
+        .and(path("/transactions/payments"))
+        .and(body_partial_json(serde_json::json!({
+            "request": {
+                "return_url": "https://example.com/return",
+                "verification_url": "https://example.com/verify",
+            }
+        })))
+        .respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({
+            "transaction": {"tracking_id": "tid", "uid": "uid1"}
+        })))
+        .expect(1)
+        .mount(&server)
+        .await;
+
+    let c = client(&server);
+    c.create_payment(PaymentRequest {
+        amount: "700".into(),
+        currency: "USD".into(),
+        test: true,
+        description: "Test transaction".into(),
+        tracking_id: "tid".into(),
+        language: None,
+        notification_url: None,
+        verification_url: Some("https://example.com/verify".into()),
+        return_url: Some("https://example.com/return".into()),
+        billing_address: None,
+        credit_card: None,
+        customer: None,
+        additional_data: None,
+    })
+    .await
+    .expect("payment should succeed");
 }
 
 #[tokio::test]
@@ -85,6 +125,8 @@ async fn create_payment_400_returns_api_error() {
             tracking_id: "t".into(),
             language: None,
             notification_url: None,
+            verification_url: None,
+            return_url: None,
             billing_address: None,
             credit_card: None,
             customer: None,

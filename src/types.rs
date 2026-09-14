@@ -297,6 +297,13 @@ pub struct PaymentRequest {
     /// URL bePaid POSTs status notifications to.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub notification_url: Option<String>,
+    /// URL for 3-D Secure verification redirect.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub verification_url: Option<String>,
+    /// URL the customer is returned to after 3-D Secure (required for
+    /// server-to-server H2H payments).
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub return_url: Option<String>,
     /// Cardholder billing address.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub billing_address: Option<BillingAddress>,

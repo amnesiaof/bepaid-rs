@@ -32,6 +32,8 @@
 //!         tracking_id: "order-123".to_owned(),
 //!         language: None,
 //!         notification_url: None,
+//!         verification_url: None,
+//!         return_url: None,
 //!         billing_address: None,
 //!         credit_card: None,
 //!         customer: None,

@@ -39,6 +39,8 @@ impl BepaidClient {
     ///         tracking_id: "order-123".to_owned(),
     ///         language: None,
     ///         notification_url: None,
+    ///         verification_url: None,
+    ///         return_url: None,
     ///         billing_address: None,
     ///         credit_card: Some(CreditCardRaw {
     ///             number: "4242424242424242".to_owned(),
