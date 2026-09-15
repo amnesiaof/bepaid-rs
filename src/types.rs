@@ -689,7 +689,7 @@ pub(crate) struct VoidEnvelope {
 #[derive(Debug, Clone, Deserialize)]
 pub struct RefundResponse {
     /// New transaction uid.
-    pub uid: Option<String>,
+    pub uid: String,
     /// Uid of the parent payment.
     pub parent_uid: Option<String>,
     /// Status of the refund.
@@ -935,7 +935,7 @@ pub struct ApmPaymentRequest {
     pub success_url: Option<String>,
     /// Merchant order id.
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub order_id: Option<serde_json::Value>,
+    pub order_id: Option<String>,
     /// Merchant tracking id.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub tracking_id: Option<String>,

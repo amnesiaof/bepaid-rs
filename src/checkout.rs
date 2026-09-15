@@ -121,7 +121,7 @@ impl BepaidClient {
                 token,
                 context: "merchant",
             }),
-            None,
+            Some("2"),
         )
         .await
     }
