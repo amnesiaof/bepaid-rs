@@ -1440,6 +1440,23 @@ pub struct SubscriptionCreateRequest {
     pub settings: Option<serde_json::Value>,
 }
 
+/// Last charge transaction attached to a subscription.
+#[derive(Debug, Clone, Deserialize)]
+pub struct SubscriptionLastTransaction {
+    /// Transaction uid.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub uid: Option<String>,
+    /// Transaction status.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub status: Option<String>,
+    /// Human-readable message.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub message: Option<String>,
+    /// Creation timestamp.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub created_at: Option<String>,
+}
+
 /// A subscription as returned by the API or delivered by a webhook.
 #[derive(Debug, Clone, Deserialize)]
 pub struct Subscription {
@@ -1472,10 +1489,10 @@ pub struct Subscription {
     pub customer: Option<SubscriptionCustomer>,
     /// Plan data.
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub plan: Option<serde_json::Value>,
+    pub plan: Option<PlanItem>,
     /// Last charge transaction.
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub last_transaction: Option<serde_json::Value>,
+    pub last_transaction: Option<SubscriptionLastTransaction>,
     /// Number of billing cycles already paid.
     #[serde(
         rename = "paid_billing_cycles",
