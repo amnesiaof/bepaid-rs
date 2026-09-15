@@ -7,6 +7,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.6.6] - 2026-09-15
+
+### Fixed
+
+- `RefundResponse.uid` is now required (`String`, not `Option<String>`).
+- `ApmPaymentRequest.order_id` changed from `serde_json::Value` to
+  `Option<String>` (docs: string "12-digit order number").
+- `validate_apple_pay` now sends `X-API-Version: 2` as required by docs.
+
+### Changed
+
+- Centralized `RequestEnvelope<T>` into `client.rs` — removed 4 duplicate
+  definitions from direct/gateway/p2p/tokens modules.
+- `Subscription.plan` changed from `Option<serde_json::Value>` to
+  `Option<PlanItem>`. New `SubscriptionLastTransaction` struct for
+  `Subscription.last_transaction` (uid/status/message/created_at).
+
 ## [0.6.5] - 2026-09-15
 
 ### Added
@@ -134,7 +151,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Direct (APM) API: `create_apm_payment`, `apm_refund`, `apm_full_refund`.
 - Webhooks: `verify_webhook_auth`, `parse_webhook`.
 
-[Unreleased]: https://github.com/amnesiaof/bepaid-rs/compare/v0.6.5...HEAD
+[Unreleased]: https://github.com/amnesiaof/bepaid-rs/compare/v0.6.6...HEAD
+[0.6.6]: https://github.com/amnesiaof/bepaid-rs/compare/v0.6.5...v0.6.6
 [0.6.5]: https://github.com/amnesiaof/bepaid-rs/compare/v0.6.4...v0.6.5
 [0.6.4]: https://github.com/amnesiaof/bepaid-rs/compare/v0.6.3...v0.6.4
 [0.6.3]: https://github.com/amnesiaof/bepaid-rs/compare/v0.6.2...v0.6.3
