@@ -10,9 +10,9 @@ use crate::types::{
     ApmConfirmEnvelope, ApmConfirmRequest, ApmConfirmResponse, ApmPaymentEnvelope,
     ApmPaymentRequest, ApmPaymentResponse, ApmPayoutEnvelope, ApmPayoutRequest, ApmPayoutResponse,
     ApmRefundEnvelope, ApmRefundRequest, ApmRefundResponse, BalanceRequest, BalanceResponse,
-    CheckupRequest, CurrencyInfo, CurrencyQueryRequest, ProofEnvelope, ProofRequest, ProofResponse,
-    SplitPaymentRequest, SplitPaymentResponse, Transaction, TransactionEnvelopeFull,
-    TransactionListEnvelope,
+    CheckServiceRequest, CheckServiceResponse, CheckupRequest, CurrencyInfo, CurrencyQueryRequest,
+    ProofEnvelope, ProofRequest, ProofResponse, SplitPaymentRequest, SplitPaymentResponse,
+    Transaction, TransactionEnvelopeFull, TransactionListEnvelope,
 };
 
 #[derive(serde::Serialize)]
@@ -54,7 +54,8 @@ impl BepaidClient {
         Ok(envelope.transaction)
     }
 
-    /// Full refund without reason via the alternative `/beyag/refunds` endpoint.
+    /// Full or partial refund of an APM transaction via the alternative
+    /// `/beyag/refunds` endpoint. `amount: None` means full refund.
     pub async fn apm_full_refund(
         &self,
         parent_uid: &str,
@@ -260,5 +261,64 @@ impl BepaidClient {
             None,
         )
         .await
+    }
+
+    /// Check if a customer is an MTS Money participant (`API v3`).
+    pub async fn check_mts_service(
+        &self,
+        req: CheckServiceRequest,
+    ) -> Result<CheckServiceResponse, BepaidError> {
+        self.request_json(
+            Method::POST,
+            &self.api("/beyag/gateways/mts_money_widget/check_service"),
+            Some(&RequestEnvelope { request: req }),
+            Some("3"),
+        )
+        .await
+    }
+
+    /// Get ERIP payment details by the payment uid (`GET /beyag/payments/:uid`).
+    pub async fn get_erip_payment(&self, uid: &str) -> Result<Transaction, BepaidError> {
+        let envelope: TransactionEnvelopeFull = self
+            .request_json(
+                Method::GET,
+                &self.api(&format!("/beyag/payments/{uid}")),
+                None::<&u8>,
+                None,
+            )
+            .await?;
+        Ok(envelope.transaction)
+    }
+
+    /// Get ERIP payment details by the merchant's order id
+    /// (`GET /beyag/payments/?order_id=...`).
+    pub async fn get_erip_payment_by_order_id(
+        &self,
+        order_id: &str,
+    ) -> Result<Transaction, BepaidError> {
+        let envelope: TransactionEnvelopeFull = self
+            .request_json(
+                Method::GET,
+                &self.api(&format!("/beyag/payments/?order_id={order_id}")),
+                None::<&u8>,
+                None,
+            )
+            .await?;
+        Ok(envelope.transaction)
+    }
+
+    /// Delete an ERIP payment requirement. Only `pending` or `permanent`
+    /// requirements can be deleted; the payment moves to `deleted` status
+    /// (`DELETE /beyag/payments/:uid`).
+    pub async fn delete_erip_payment(&self, uid: &str) -> Result<Transaction, BepaidError> {
+        let envelope: TransactionEnvelopeFull = self
+            .request_json(
+                Method::DELETE,
+                &self.api(&format!("/beyag/payments/{uid}")),
+                None::<&u8>,
+                None,
+            )
+            .await?;
+        Ok(envelope.transaction)
     }
 }

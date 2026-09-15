@@ -6,7 +6,7 @@ use reqwest::Method;
 
 use crate::client::BepaidClient;
 use crate::error::BepaidError;
-use crate::types::{P2pEnvelope, P2pRequest, P2pResponse};
+use crate::types::{P2pEnvelope, P2pRequest, P2pResponse, VerifyP2pResponse};
 
 #[derive(serde::Serialize)]
 struct RequestEnvelope<T> {
@@ -64,5 +64,17 @@ impl BepaidClient {
             )
             .await?;
         Ok(envelope.transaction)
+    }
+
+    /// Check whether a P2P transfer is possible and get commission details.
+    /// Uses the `POST /p2p-restrictions` endpoint (flat response, no envelope).
+    pub async fn verify_p2p(&self, req: P2pRequest) -> Result<VerifyP2pResponse, BepaidError> {
+        self.request_json(
+            Method::POST,
+            &self.gateway("/p2p-restrictions"),
+            Some(&RequestEnvelope { request: req }),
+            None,
+        )
+        .await
     }
 }

@@ -537,6 +537,10 @@ pub struct Transaction {
     pub customer: Option<serde_json::Value>,
     /// Billing address.
     pub billing_address: Option<BillingAddress>,
+    /// Merchant order id (ЕРИП).
+    pub order_id: Option<String>,
+    /// ЕРИП payment data (QR code, instruction, etc.).
+    pub erip: Option<serde_json::Value>,
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -1056,6 +1060,54 @@ impl ApmPaymentRequest {
             }),
         )
     }
+
+    /// SberPay (QR + deeplink) payment. `return_url` is required; `phone`
+    /// enables the desktop push-notification flow.
+    pub fn sberpay(amount: i64, currency: &str, return_url: &str, phone: Option<&str>) -> Self {
+        let mut req = Self::base(
+            amount,
+            currency,
+            serde_json::json!({ "type": "sberpay_qr_deeplink" }),
+        );
+        req.return_url = Some(return_url.to_owned());
+        if let Some(phone) = phone {
+            req.customer = Some(Customer {
+                first_name: None,
+                last_name: None,
+                ip: None,
+                email: None,
+                device_id: None,
+                birth_date: None,
+                phone: Some(phone.to_owned()),
+            });
+        }
+        req
+    }
+
+    /// Alfa-Click payment (Belarus).
+    pub fn alfaclick(amount: i64, currency: &str) -> Self {
+        Self::base(amount, currency, serde_json::json!({ "type": "alfaclick" }))
+    }
+
+    /// WebPay payment (Belarus).
+    pub fn webpay(amount: i64, currency: &str) -> Self {
+        Self::base(amount, currency, serde_json::json!({ "type": "webpay" }))
+    }
+
+    /// RC Card payment (Russia).
+    pub fn rccard(amount: i64, currency: &str) -> Self {
+        Self::base(amount, currency, serde_json::json!({ "type": "rccard" }))
+    }
+
+    /// BYN Card payment (Belarus).
+    pub fn byncard(amount: i64, currency: &str) -> Self {
+        Self::base(amount, currency, serde_json::json!({ "type": "byncard" }))
+    }
+
+    /// Halva payment (Belarus).
+    pub fn halva(amount: i64, currency: &str) -> Self {
+        Self::base(amount, currency, serde_json::json!({ "type": "halva" }))
+    }
 }
 
 /// Response of an APM payment request.
@@ -1498,7 +1550,39 @@ pub(crate) struct ApmConfirmEnvelope {
     pub response: ApmConfirmResponse,
 }
 
-// ── P2P transfer ──────────────────────────────────────────────────────────────
+// ── MTS Money check_service ──────────────────────────────────────────────────
+
+/// Request to check if a customer is an MTS Money participant.
+#[derive(Debug, Clone, Serialize)]
+pub struct CheckServiceRequest {
+    /// Set `true` to run in test mode.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub test: Option<bool>,
+    /// Customer information. `phone` is required (e.g. `375291112233`).
+    pub customer: Customer,
+}
+
+/// Response from the MTS Money `check_service` endpoint.
+#[derive(Debug, Clone, Deserialize)]
+pub struct CheckServiceResponse {
+    /// Whether the customer's phone is enrolled in MTS Money.
+    pub service_activated: Option<bool>,
+    /// System message.
+    pub message: Option<String>,
+    /// Provider validation details.
+    pub validation: Option<CheckServiceValidation>,
+}
+
+/// Provider-specific validation info from MTS Money check.
+#[derive(Debug, Clone, Deserialize)]
+pub struct CheckServiceValidation {
+    /// Operator identifier (e.g. `mts`).
+    pub operator: Option<String>,
+    /// Provider-specific message.
+    pub message: Option<String>,
+}
+
+// ── P2P transfer ────────────────────────────────────────────────────────────
 
 /// Sender or recipient card of a P2P transfer. Either a `token` or a card
 /// number (expiration/holder/CVV required for the source card).
@@ -1605,6 +1689,45 @@ pub struct P2pResponse {
 #[derive(Debug, Clone, Deserialize)]
 pub(crate) struct P2pEnvelope {
     pub transaction: P2pResponse,
+}
+
+/// Response of a P2P-restriction check (flat, no envelope).
+#[derive(Debug, Clone, Deserialize)]
+pub struct VerifyP2pResponse {
+    /// Check status (`successful` / `failed`).
+    pub status: Option<String>,
+    /// Message from the bank system.
+    pub message: Option<String>,
+    /// Commission info (present when transfer is possible).
+    pub commission: Option<P2pCommission>,
+    /// Whether the check used test cards.
+    pub test: Option<bool>,
+    /// Error code on failure.
+    pub error_code: Option<String>,
+    /// Fields that must be collected additionally from the cardholder.
+    pub required_fields: Option<P2pRequiredFields>,
+}
+
+/// Commission details returned by a P2P-restriction check.
+#[derive(Debug, Clone, Deserialize)]
+pub struct P2pCommission {
+    /// Minimum commission in major units.
+    pub minimum: Option<f64>,
+    /// Commission percentage.
+    pub percent: Option<f64>,
+    /// Absolute commission computed by the processing bank.
+    pub bank_fee: Option<f64>,
+    /// Commission currency (ISO-4217).
+    pub currency: Option<String>,
+}
+
+/// Fields requested additionally about source/recipient cards.
+#[derive(Debug, Clone, Deserialize)]
+pub struct P2pRequiredFields {
+    /// Fields to request about the source card.
+    pub credit_card: Option<Vec<String>>,
+    /// Fields to request about the recipient card.
+    pub recipient_card: Option<Vec<String>>,
 }
 
 // ── webhook ───────────────────────────────────────────────────────────────────

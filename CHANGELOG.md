@@ -7,6 +7,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.6.5] - 2026-09-15
+
+### Added
+
+- `X-Api-Version: 3` on all gateway API calls (payments, authorizations,
+  captures, voids, refunds, status, tokens, payouts, P2P, checkups).
+- SberPay push constructor: `ApmPaymentRequest::sberpay` with optional
+  `phone` on the customer.
+- APM constructors: `alfaclick`, `webpay`, `rccard`, `byncard`, `halva`.
+- MTS Money service check: `check_mts_service` (`API v3`).
+- P2P restrictions check: `verify_p2p` (`POST /p2p-restrictions`).
+- ERIP payment endpoints: `get_erip_payment`, `get_erip_payment_by_order_id`,
+  `delete_erip_payment` (only `pending`/`permanent` requirements can be
+  deleted).
+- `Transaction.order_id` and `Transaction.erip` fields.
+
+### Changed
+
+- `charge_saved_card` now sends `X-Api-Version: 3`.
+
 ## [0.6.4] - 2026-09-14
 
 ### Added
@@ -114,7 +134,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Direct (APM) API: `create_apm_payment`, `apm_refund`, `apm_full_refund`.
 - Webhooks: `verify_webhook_auth`, `parse_webhook`.
 
-[Unreleased]: https://github.com/amnesiaof/bepaid-rs/compare/v0.6.4...HEAD
+[Unreleased]: https://github.com/amnesiaof/bepaid-rs/compare/v0.6.5...HEAD
+[0.6.5]: https://github.com/amnesiaof/bepaid-rs/compare/v0.6.4...v0.6.5
 [0.6.4]: https://github.com/amnesiaof/bepaid-rs/compare/v0.6.3...v0.6.4
 [0.6.3]: https://github.com/amnesiaof/bepaid-rs/compare/v0.6.2...v0.6.3
 [0.6.2]: https://github.com/amnesiaof/bepaid-rs/compare/v0.6.1...v0.6.2
