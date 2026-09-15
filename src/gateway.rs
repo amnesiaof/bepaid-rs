@@ -4,7 +4,7 @@
 
 use reqwest::Method;
 
-use crate::client::BepaidClient;
+use crate::client::{BepaidClient, RequestEnvelope};
 use crate::error::BepaidError;
 use crate::types::{
     AuthorizationEnvelope, AuthorizationRequest, AuthorizationResponse, CaptureEnvelope,
@@ -13,11 +13,6 @@ use crate::types::{
     RefundRequest, RefundResponse, TrackingIdStatus, Transaction, TransactionEnvelope,
     TransactionEnvelopeFull, VoidEnvelope, VoidRequest, VoidResponse,
 };
-
-#[derive(serde::Serialize)]
-struct RequestEnvelope<T> {
-    request: T,
-}
 
 impl BepaidClient {
     /// Create a payment. Returns tracking_id + uid.

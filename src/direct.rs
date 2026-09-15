@@ -4,7 +4,7 @@
 
 use reqwest::Method;
 
-use crate::client::BepaidClient;
+use crate::client::{BepaidClient, RequestEnvelope};
 use crate::error::BepaidError;
 use crate::types::{
     ApmConfirmEnvelope, ApmConfirmRequest, ApmConfirmResponse, ApmPaymentEnvelope,
@@ -14,11 +14,6 @@ use crate::types::{
     ProofEnvelope, ProofRequest, ProofResponse, SplitPaymentRequest, SplitPaymentResponse,
     Transaction, TransactionEnvelopeFull, TransactionListEnvelope,
 };
-
-#[derive(serde::Serialize)]
-struct RequestEnvelope<T> {
-    request: T,
-}
 
 impl BepaidClient {
     /// Pay by an alternative payment method (ERIP, Alfabank, MTS Money, ...).

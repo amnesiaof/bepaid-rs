@@ -1,13 +1,8 @@
 use reqwest::Method;
 
-use crate::client::BepaidClient;
+use crate::client::{BepaidClient, RequestEnvelope};
 use crate::error::BepaidError;
 use crate::types::{CreateTokenRequest, TokenResponse};
-
-#[derive(serde::Serialize)]
-struct RequestEnvelope<T> {
-    request: T,
-}
 
 impl BepaidClient {
     /// Tokenize a card (PCI-DSS certified, merchant stores the token, not the PAN).

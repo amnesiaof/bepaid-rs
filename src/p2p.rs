@@ -4,14 +4,9 @@
 
 use reqwest::Method;
 
-use crate::client::BepaidClient;
+use crate::client::{BepaidClient, RequestEnvelope};
 use crate::error::BepaidError;
 use crate::types::{P2pEnvelope, P2pRequest, P2pResponse, VerifyP2pResponse};
-
-#[derive(serde::Serialize)]
-struct RequestEnvelope<T> {
-    request: T,
-}
 
 impl BepaidClient {
     /// Transfer money between two cards.

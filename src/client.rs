@@ -3,6 +3,13 @@ use reqwest::Client;
 
 use crate::error::{ApiError, BepaidError};
 
+/// Generic wrapper that serializes as `{"request": T}` — used by all POST
+/// endpoints that follow the bePaid envelope convention.
+#[derive(serde::Serialize)]
+pub(crate) struct RequestEnvelope<T> {
+    pub(crate) request: T,
+}
+
 /// Default base URL for the Gateway API (card payments).
 pub const DEFAULT_GATEWAY_URL: &str = "https://gateway.bepaid.by";
 /// Default base URL for the Checkout API (hosted payment pages).
