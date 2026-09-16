@@ -58,6 +58,7 @@ async fn create_payment_happy_path() {
             additional_data: None,
             encrypted_data: None,
             fiscalization: None,
+            custom_fields: None,
         })
         .await;
 
@@ -101,6 +102,7 @@ async fn create_payment_serializes_h2h_fields() {
         additional_data: None,
         encrypted_data: None,
         fiscalization: None,
+        custom_fields: None,
     })
     .await
     .expect("payment should succeed");
@@ -173,13 +175,14 @@ async fn create_payment_serializes_fiscalization_and_encrypted_data() {
                 }]),
             }],
         }),
+        custom_fields: None,
     })
     .await
     .expect("payment should succeed");
 }
 
 #[tokio::test]
-async fn create_payment_400_returns_api_error() {
+async fn create_payment_rejects_invalid_amount() {
     let server = MockServer::start().await;
     Mock::given(method("POST"))
         .and(path("/transactions/payments"))
@@ -210,6 +213,7 @@ async fn create_payment_400_returns_api_error() {
             additional_data: None,
             encrypted_data: None,
             fiscalization: None,
+            custom_fields: None,
         })
         .await
         .expect_err("should error");
@@ -257,6 +261,7 @@ async fn create_authorization_returns_redirect() {
             credit_card: None,
             customer: None,
             billing_address: None,
+            custom_fields: None,
         })
         .await
         .expect("auth should succeed");
@@ -535,6 +540,7 @@ async fn checkout_happy_path() {
                 description: Some("Test".into()),
                 tracking_id: None,
                 additional_data: None,
+                custom_fields: None,
             },
             customer: None,
         })
@@ -582,6 +588,7 @@ async fn payment_token_happy_path() {
                 additional_data: Some(bepaid::types::CheckoutAdditionalData {
                     contract: Some(vec!["recurring".into()]),
                 }),
+                custom_fields: None,
             },
             customer: None,
         })
@@ -661,6 +668,7 @@ async fn apm_payment_happy_path() {
             customer: None,
             payment_method: serde_json::json!({"type": "mts_money", "confirm_agreement": "accept"}),
             additional_data: None,
+            custom_fields: None,
         })
         .await
         .expect("apm should succeed");
@@ -1214,6 +1222,7 @@ async fn payout_happy_path() {
             },
             recipient_credit_card: None,
             additional_data: None,
+            custom_fields: None,
         })
         .await
         .expect("payout should succeed");
@@ -1858,6 +1867,7 @@ async fn apm_payout_happy_path() {
             customer: None,
             method: serde_json::json!({"type": "ad_payments"}),
             additional_data: None,
+            custom_fields: None,
         })
         .await
         .expect("payout should succeed");

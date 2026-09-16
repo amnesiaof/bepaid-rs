@@ -46,6 +46,7 @@ async fn main() -> Result<(), bepaid::BepaidError> {
                 phone: None,
             }),
             billing_address: None,
+            custom_fields: None,
         })
         .await?;
 

@@ -40,6 +40,7 @@
 //!         additional_data: None,
 //!         encrypted_data: None,
 //!         fiscalization: None,
+//!         custom_fields: None,
 //!     };
 //!     let payment = client.create_payment(request).await?;
 //!     println!("uid: {}", payment.uid);

@@ -84,6 +84,7 @@ impl BepaidClient {
     ///             additional_data: Some(CheckoutAdditionalData {
     ///                 contract: Some(vec!["recurring".to_owned()]),
     ///             }),
+    ///             custom_fields: None,
     ///         },
     ///         customer: None,
     ///     };

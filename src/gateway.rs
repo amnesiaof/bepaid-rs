@@ -50,6 +50,7 @@ impl BepaidClient {
     ///         additional_data: None,
     ///         encrypted_data: None,
     ///         fiscalization: None,
+    ///         custom_fields: None,
     ///     };
     ///     let payment = client.create_payment(request).await?;
     ///     println!("uid: {}", payment.uid);
@@ -100,6 +101,7 @@ impl BepaidClient {
     ///         }),
     ///         customer: None,
     ///         billing_address: None,
+    ///         custom_fields: None,
     ///     };
     ///     let authorization = client.create_authorization(request).await?;
     ///     if let Some(url) = authorization.redirect_url {

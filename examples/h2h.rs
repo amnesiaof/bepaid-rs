@@ -63,6 +63,7 @@ async fn main() -> Result<(), bepaid::BepaidError> {
             }),
             encrypted_data: None,
             fiscalization: None,
+            custom_fields: None,
         })
         .await?;
 

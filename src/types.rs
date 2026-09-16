@@ -334,6 +334,43 @@ pub struct Fiscalization {
     pub positions: Vec<FiscalizationPosition>,
 }
 
+/// A single custom field attached to a transaction (`custom_field_N` entry).
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct CustomField {
+    /// Field label, displayed in reports.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub label: Option<String>,
+    /// Field value, displayed in reports.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub value: Option<String>,
+    /// Hint shown in the field on the confirmation page.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub placeholder: Option<String>,
+    /// If `true`, displays the field on the confirmation page.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub visible: Option<bool>,
+    /// If `true`, requires the field on the confirmation page.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub required: Option<bool>,
+    /// If `true`, prevents editing the field value.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub read_only: Option<bool>,
+}
+
+/// Up to 3 custom fields (`order.custom_fields` / request `custom_fields`).
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct CustomFields {
+    /// First custom field.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub custom_field_1: Option<CustomField>,
+    /// Second custom field.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub custom_field_2: Option<CustomField>,
+    /// Third custom field.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub custom_field_3: Option<CustomField>,
+}
+
 /// Card payment request. `amount` is a string in minor units, e.g. `"700"`.
 #[derive(Debug, Clone, Serialize)]
 pub struct PaymentRequest {
@@ -379,6 +416,9 @@ pub struct PaymentRequest {
     /// KZT fiscalization payload.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub fiscalization: Option<Fiscalization>,
+    /// Up to 3 custom fields.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub custom_fields: Option<CustomFields>,
 }
 
 /// Minimal response of a successful payment creation.
@@ -423,6 +463,9 @@ pub struct AuthorizationRequest {
     /// Cardholder billing address.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub billing_address: Option<BillingAddress>,
+    /// Up to 3 custom fields.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub custom_fields: Option<CustomFields>,
 }
 
 /// Response of an authorization. When 3-D Secure is required, `redirect_url`
@@ -541,6 +584,8 @@ pub struct Transaction {
     pub order_id: Option<String>,
     /// ЕРИП payment data (QR code, instruction, etc.).
     pub erip: Option<serde_json::Value>,
+    /// Up to 3 custom fields.
+    pub custom_fields: Option<CustomFields>,
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -874,6 +919,9 @@ pub struct CheckoutOrder {
     /// Extra order data, e.g. `contract` for tokenization.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub additional_data: Option<CheckoutAdditionalData>,
+    /// Up to 3 custom fields.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub custom_fields: Option<CustomFields>,
 }
 
 /// Response of checkout creation: the hosted page and its token.
@@ -962,6 +1010,9 @@ pub struct ApmPaymentRequest {
     /// Additional method-specific data.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub additional_data: Option<serde_json::Value>,
+    /// Up to 3 custom fields.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub custom_fields: Option<CustomFields>,
 }
 
 /// Meter/device entry in an ERIP payment (`erip_devices`).
@@ -998,6 +1049,7 @@ impl ApmPaymentRequest {
             customer: None,
             payment_method,
             additional_data: None,
+            custom_fields: None,
         }
     }
 
@@ -1148,6 +1200,8 @@ pub struct ApmPaymentResponse {
     pub billing_address: Option<serde_json::Value>,
     /// Additional data echoed back.
     pub additional_data: Option<serde_json::Value>,
+    /// Up to 3 custom fields.
+    pub custom_fields: Option<CustomFields>,
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -1879,6 +1933,9 @@ pub struct PayoutRequest {
     /// Additional data.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub additional_data: Option<PayoutAdditionalData>,
+    /// Up to 3 custom fields.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub custom_fields: Option<CustomFields>,
 }
 
 /// Payout execution details.
@@ -1952,6 +2009,9 @@ pub struct PayoutResponse {
     /// Billing address.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub billing_address: Option<BillingAddress>,
+    /// Up to 3 custom fields.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub custom_fields: Option<CustomFields>,
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -2652,6 +2712,9 @@ pub struct ApmPayoutRequest {
     /// Additional method-specific data.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub additional_data: Option<serde_json::Value>,
+    /// Up to 3 custom fields.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub custom_fields: Option<CustomFields>,
 }
 
 /// APM payout response (`POST /beyag/transactions/payouts`).
@@ -2698,6 +2761,8 @@ pub struct ApmPayoutResponse {
     pub smart_routing_verification: Option<serde_json::Value>,
     /// Additional data.
     pub additional_data: Option<serde_json::Value>,
+    /// Up to 3 custom fields.
+    pub custom_fields: Option<CustomFields>,
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -2764,4 +2829,48 @@ pub struct ProofResponse {
 #[derive(Debug, Clone, Deserialize)]
 pub(crate) struct ProofEnvelope {
     pub transaction: ProofResponse,
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn custom_fields_roundtrip() {
+        let cf = CustomFields {
+            custom_field_1: Some(CustomField {
+                label: Some("Email".into()),
+                value: Some("john@example.com".into()),
+                placeholder: None,
+                visible: Some(true),
+                required: Some(true),
+                read_only: None,
+            }),
+            custom_field_2: Some(CustomField {
+                label: Some("Agreement number".into()),
+                value: Some("12349".into()),
+                placeholder: None,
+                visible: Some(true),
+                required: None,
+                read_only: Some(true),
+            }),
+            custom_field_3: None,
+        };
+        let json = serde_json::to_value(&cf).unwrap();
+        assert_eq!(
+            json["custom_field_1"],
+            serde_json::json!({
+                "label": "Email",
+                "value": "john@example.com",
+                "visible": true,
+                "required": true,
+            })
+        );
+        let back: CustomFields = serde_json::from_value(json).unwrap();
+        assert_eq!(
+            back.custom_field_2.as_ref().unwrap().value.as_deref(),
+            Some("12349")
+        );
+        assert_eq!(back.custom_field_3, None);
+    }
 }
