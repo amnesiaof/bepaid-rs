@@ -1068,6 +1068,7 @@ async fn apm_confirm_happy_path() {
         .confirm_apm_payment(
             "1-310b0da80b",
             ApmConfirmRequest {
+                confirm_type: None,
                 skip_duplicate_check: Some(false),
                 transaction_reference: "receipt-123".into(),
             },

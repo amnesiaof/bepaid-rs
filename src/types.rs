@@ -1583,6 +1583,9 @@ pub struct CancelSubscriptionRequest {
 /// Confirm a payment from a third-party application.
 #[derive(Debug, Clone, Serialize)]
 pub struct ApmConfirmRequest {
+    /// Confirmation type for BelВеб-кредит: `"confirm"` or `"cancel"` (optional).
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub confirm_type: Option<String>,
     /// Skip check for duplicate confirmations (default `false`).
     #[serde(skip_serializing_if = "Option::is_none")]
     pub skip_duplicate_check: Option<bool>,
