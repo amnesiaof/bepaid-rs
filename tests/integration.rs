@@ -539,6 +539,7 @@ async fn checkout_happy_path() {
                 amount: 7000,
                 description: Some("Test".into()),
                 tracking_id: None,
+                expired_at: None,
                 additional_data: None,
                 custom_fields: None,
             },
@@ -585,6 +586,7 @@ async fn payment_token_happy_path() {
                 amount: 7000,
                 description: Some("Widget order".into()),
                 tracking_id: None,
+                expired_at: None,
                 additional_data: Some(bepaid::types::CheckoutAdditionalData {
                     contract: Some(vec!["recurring".into()]),
                 }),
@@ -1191,6 +1193,8 @@ async fn payout_happy_path() {
                 device_id: None,
                 birth_date: Some("1990-10-20".into()),
                 phone: None,
+                external_id: None,
+                taxpayer_id: None,
             },
             sender: bepaid::types::Customer {
                 first_name: None,
@@ -1200,6 +1204,8 @@ async fn payout_happy_path() {
                 device_id: None,
                 birth_date: Some("1990-10-20".into()),
                 phone: None,
+                external_id: None,
+                taxpayer_id: None,
             },
             recipient_billing_address: bepaid::types::BillingAddress {
                 first_name: None,

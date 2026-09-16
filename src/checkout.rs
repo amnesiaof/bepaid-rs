@@ -81,6 +81,7 @@ impl BepaidClient {
     ///             amount: 100,
     ///             description: Some("Widget order".to_owned()),
     ///             tracking_id: None,
+    ///             expired_at: None,
     ///             additional_data: Some(CheckoutAdditionalData {
     ///                 contract: Some(vec!["recurring".to_owned()]),
     ///             }),

@@ -55,6 +55,12 @@ pub struct Customer {
     /// Phone number.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub phone: Option<String>,
+    /// Customer identifier in the merchant's system.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub external_id: Option<String>,
+    /// Customer taxpayer ID.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub taxpayer_id: Option<String>,
 }
 
 /// Browser data used for 3-D Secure / risk scoring.
@@ -847,6 +853,67 @@ pub struct CheckoutRequest {
     pub customer: Option<Customer>,
 }
 
+/// User-consent toggle settings on the confirmation page.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct AgreementToggle {
+    /// Default toggle position (on/off).
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub value: Option<bool>,
+    /// URL of the merchant's User Agreement text.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub url: Option<String>,
+    /// Text shown next to the toggle.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub text: Option<String>,
+}
+
+/// Customer detail fields shown on the payment widget.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CheckoutCustomerFields {
+    /// Fields displayed non-editable.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub read_only: Option<Vec<String>>,
+    /// Fields displayed editable.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub visible: Option<Vec<String>>,
+}
+
+/// Cardholder name prefilling settings on the widget.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CreditCardFields {
+    /// Cardholder name to prefill.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub holder: Option<String>,
+    /// Fields blocked from editing.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub read_only: Option<Vec<String>>,
+}
+
+/// Save-card toggle configuration on the widget.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SaveCardToggle {
+    /// Whether the toggle is displayed.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub display: Option<bool>,
+    /// `true` – toggle means consent to provide card data to the merchant.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub customer_contract: Option<bool>,
+    /// Text replacing the standard toggle name.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub text: Option<String>,
+    /// Hint text for the toggle.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub hint: Option<String>,
+}
+
+/// "Pay with another card" toggle configuration.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct AnotherCardToggle {
+    /// Whether the toggle is displayed.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub display: Option<bool>,
+}
+
 /// Redirection and page settings of a checkout.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct CheckoutSettings {
@@ -877,6 +944,33 @@ pub struct CheckoutSettings {
     /// Checkout page language.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub language: Option<String>,
+    /// Whether to skip the user-agreement page.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub agreed: Option<bool>,
+    /// User-agreement toggle settings.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub agreement_toggle: Option<AgreementToggle>,
+    /// Customer detail fields shown on the widget.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub customer_fields: Option<CheckoutCustomerFields>,
+    /// Cardholder name prefilling on the widget.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub credit_card_fields: Option<CreditCardFields>,
+    /// URL used for payout verification.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub verification_url: Option<String>,
+    /// Seconds before auto-return, `0` for immediate redirect.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub auto_return: Option<String>,
+    /// URL for card art notifications.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub card_notification_url: Option<String>,
+    /// Save-card toggle configuration.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub save_card_toggle: Option<SaveCardToggle>,
+    /// Another-card toggle configuration.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub another_card_toggle: Option<AnotherCardToggle>,
 }
 
 /// Allowed payment method types in a checkout.
@@ -885,6 +979,12 @@ pub struct PaymentMethod {
     /// Method types, e.g. `["credit_card"]`.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub types: Option<Vec<String>>,
+    /// Payment types excluded from the payment page.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub excluded_types: Option<Vec<String>>,
+    /// Card brands and digital wallets excluded from the widget.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub excluded_brands: Option<Vec<String>>,
 }
 
 /// Prefilled card in a checkout.
@@ -916,6 +1016,9 @@ pub struct CheckoutOrder {
     /// Order tracking/reference id.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub tracking_id: Option<String>,
+    /// Date and time till a payment can be done (ISO 8601).
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub expired_at: Option<String>,
     /// Extra order data, e.g. `contract` for tokenization.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub additional_data: Option<CheckoutAdditionalData>,
@@ -1089,6 +1192,8 @@ impl ApmPaymentRequest {
             device_id: None,
             birth_date: None,
             phone: Some(phone.to_owned()),
+            external_id: None,
+            taxpayer_id: None,
         });
         req
     }
@@ -1131,6 +1236,8 @@ impl ApmPaymentRequest {
                 device_id: None,
                 birth_date: None,
                 phone: Some(phone.to_owned()),
+                external_id: None,
+                taxpayer_id: None,
             });
         }
         req

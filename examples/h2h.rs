@@ -54,6 +54,8 @@ async fn main() -> Result<(), bepaid::BepaidError> {
                 device_id: None,
                 birth_date: None,
                 phone: None,
+                external_id: None,
+                taxpayer_id: None,
             }),
             additional_data: Some(bepaid::types::AdditionalData {
                 browser: None,
