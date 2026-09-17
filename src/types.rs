@@ -123,6 +123,12 @@ pub struct CreditCardRaw {
     /// Card token to pay without the PAN (mutually exclusive with `number`).
     #[serde(skip_serializing_if = "Option::is_none")]
     pub token: Option<String>,
+    /// Skip 3-D Secure verification for the card.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub skip_three_d_secure_verification: Option<bool>,
+    /// Force 3-D Secure verification for the card.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub force_three_d_secure_verification: Option<bool>,
 }
 
 /// Credit card in API responses (masked, with brand info).
@@ -403,6 +409,10 @@ pub struct PaymentRequest {
     /// server-to-server H2H payments).
     #[serde(skip_serializing_if = "Option::is_none")]
     pub return_url: Option<String>,
+    /// `false` to allow duplicate transactions (same amount and card within
+    /// 30 seconds) instead of rejecting them.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub duplicate_check: Option<bool>,
     /// Cardholder billing address.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub billing_address: Option<BillingAddress>,
@@ -460,6 +470,10 @@ pub struct AuthorizationRequest {
     /// Set to `true` to run in test mode.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub test: Option<bool>,
+    /// `false` to allow duplicate transactions (same amount and card within
+    /// 30 seconds) instead of rejecting them.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub duplicate_check: Option<bool>,
     /// Card data or token.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub credit_card: Option<CreditCardRaw>,
@@ -469,6 +483,9 @@ pub struct AuthorizationRequest {
     /// Cardholder billing address.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub billing_address: Option<BillingAddress>,
+    /// URL bePaid POSTs the transaction verification request to.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub verification_url: Option<String>,
     /// Up to 3 custom fields.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub custom_fields: Option<CustomFields>,
@@ -552,14 +569,16 @@ pub struct Transaction {
     pub settled_at: Option<String>,
     /// Manual correction timestamp.
     pub manually_corrected_at: Option<String>,
+    /// PSP settlement timestamp.
+    pub psp_settled_at: Option<String>,
     /// ISO 639-1 language code.
     pub language: Option<String>,
     /// Masked card details.
     pub credit_card: Option<CreditCardInfo>,
     /// Receipt (check) URL.
     pub receipt_url: Option<String>,
-    /// Status code of the gateway.
-    pub status_code: Option<String>,
+    /// Status code of the 3-D Secure check.
+    pub status_code: Option<i64>,
     /// Gateway-specific response.
     pub gateway: Option<serde_json::Value>,
     /// Whether merchant notifications are muted.
@@ -576,6 +595,14 @@ pub struct Transaction {
     pub friendly_message: Option<String>,
     /// Smart routing verification result.
     pub smart_routing_verification: Option<SmartRoutingVerification>,
+    /// 3-D Secure verification result.
+    pub three_d_secure_verification: Option<ThreeDSecureVerification>,
+    /// Uid of the parent transaction, if any.
+    pub parent_uid: Option<String>,
+    /// Reason of a disputed transaction (chargeback).
+    pub reason: Option<String>,
+    /// Error data of transaction processing.
+    pub errors: Option<serde_json::Value>,
     /// Acquirer payment details.
     pub payment: Option<PaymentInfo>,
     /// AVS / CVC verification results.
@@ -592,6 +619,8 @@ pub struct Transaction {
     pub erip: Option<serde_json::Value>,
     /// Up to 3 custom fields.
     pub custom_fields: Option<CustomFields>,
+    /// Tokenization result (present on `tokenization` transactions).
+    pub tokenization: Option<TokenizationInfo>,
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -678,12 +707,14 @@ pub struct CaptureResponse {
     pub settled_at: Option<String>,
     /// Manual correction timestamp.
     pub manually_corrected_at: Option<String>,
+    /// PSP settlement timestamp.
+    pub psp_settled_at: Option<String>,
     /// Uid of the parent authorization.
     pub parent_uid: Option<String>,
     /// Receipt URL.
     pub receipt_url: Option<String>,
     /// Status code.
-    pub status_code: Option<String>,
+    pub status_code: Option<i64>,
     /// Whether notifications are muted.
     pub mute_notifications: Option<serde_json::Value>,
     /// Transaction version.
@@ -820,6 +851,78 @@ pub struct TokenResponse {
     pub exp_year: Option<i64>,
 }
 
+/// Result of a card tokenization transaction.
+#[derive(Debug, Clone, Deserialize)]
+pub struct TokenizationInfo {
+    /// Gateway internal tokenization id.
+    pub gateway_id: Option<i64>,
+    /// Tokenization status, e.g. `successful`.
+    pub status: Option<String>,
+    /// Human-readable message.
+    pub message: Option<String>,
+}
+
+/// 3-D Secure advanced-control flow settings.
+#[derive(Debug, Clone, Serialize)]
+pub struct ThreeDSecureAdvanced {
+    /// Enable the advanced 3-D Secure flow.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub advanced: Option<bool>,
+}
+
+/// Card tokenization (3-D Secure) request.
+#[derive(Debug, Clone, Serialize)]
+pub struct TokenizationRequest {
+    /// Amount in minor units.
+    pub amount: i64,
+    /// ISO 4217 currency code.
+    pub currency: String,
+    /// Free-form description.
+    pub description: String,
+    /// Merchant tracking id.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub tracking_id: Option<String>,
+    /// Block identical concurrent requests.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub duplicate_check: Option<bool>,
+    /// Dynamic descriptor shown in the statement.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub dynamic_billing_descriptor: Option<String>,
+    /// ISO 639-1 language code.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub language: Option<String>,
+    /// URL bePaid POSTs the transaction notification to.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub notification_url: Option<String>,
+    /// URL bePaid POSTs the transaction verification request to.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub verification_url: Option<String>,
+    /// URL to redirect the customer to after payment.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub return_url: Option<String>,
+    /// Set to `true` to run in test mode.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub test: Option<bool>,
+    /// Cardholder billing address.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub billing_address: Option<BillingAddress>,
+    /// Card data.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub credit_card: Option<CreditCardRaw>,
+    /// 3-D Secure flow control.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub three_d_secure: Option<ThreeDSecureAdvanced>,
+    /// Travel data.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub travel: Option<serde_json::Value>,
+    /// Customer metadata.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub customer: Option<Customer>,
+    /// Extra per-request data.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub additional_data: Option<AdditionalData>,
+}
+
 // ── checkout API ──────────────────────────────────────────────────────────────
 
 /// Hosted checkout page request.
@@ -876,6 +979,9 @@ pub struct CheckoutCustomerFields {
     /// Fields displayed editable.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub visible: Option<Vec<String>>,
+    /// Fields hidden on the widget.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub hidden: Option<Vec<String>>,
 }
 
 /// Cardholder name prefilling settings on the widget.
@@ -1056,6 +1162,22 @@ pub struct CheckoutStatus {
     pub order: Option<serde_json::Value>,
     /// Checkout settings echoed back.
     pub settings: Option<CheckoutSettings>,
+    /// Customer data.
+    pub customer: Option<serde_json::Value>,
+    /// Whether the checkout finished.
+    pub finished: Option<bool>,
+    /// Whether the payment token expired.
+    pub expired: Option<bool>,
+    /// Shop metadata.
+    pub shop: Option<serde_json::Value>,
+    /// Whether it was a test checkout.
+    pub test: Option<bool>,
+    /// Status, e.g. `error`, `successful`.
+    pub status: Option<String>,
+    /// Human-readable message.
+    pub message: Option<String>,
+    /// Payment method details.
+    pub payment_method: Option<serde_json::Value>,
 }
 
 #[derive(Debug, Clone, Deserialize)]

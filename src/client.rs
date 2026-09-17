@@ -98,7 +98,24 @@ impl BepaidClient {
         body: Option<&impl serde::Serialize>,
         api_version: Option<&str>,
     ) -> Result<T, BepaidError> {
-        let resp = self.send_request(method, url, body, api_version).await?;
+        let resp = self
+            .send_request(method, url, body, api_version, None)
+            .await?;
+        Ok(resp.json().await?)
+    }
+
+    /// Like [`BepaidClient::request_json`] with an optional idempotency header.
+    pub(crate) async fn request_json_with_id<T: serde::de::DeserializeOwned>(
+        &self,
+        method: reqwest::Method,
+        url: &str,
+        body: Option<&impl serde::Serialize>,
+        api_version: Option<&str>,
+        request_id: Option<&str>,
+    ) -> Result<T, BepaidError> {
+        let resp = self
+            .send_request(method, url, body, api_version, request_id)
+            .await?;
         Ok(resp.json().await?)
     }
 
@@ -110,16 +127,19 @@ impl BepaidClient {
         body: Option<&impl serde::Serialize>,
         api_version: Option<&str>,
     ) -> Result<(), BepaidError> {
-        self.send_request(method, url, body, api_version).await?;
+        self.send_request(method, url, body, api_version, None)
+            .await?;
         Ok(())
     }
 
+    /// Sets the `RequestID` header when `request_id` is provided.
     async fn send_request(
         &self,
         method: reqwest::Method,
         url: &str,
         body: Option<&impl serde::Serialize>,
         api_version: Option<&str>,
+        request_id: Option<&str>,
     ) -> Result<reqwest::Response, BepaidError> {
         let mut builder = self
             .http
@@ -129,6 +149,9 @@ impl BepaidClient {
             .header("Accept", "application/json");
         if let Some(v) = api_version {
             builder = builder.header("X-API-Version", v);
+        }
+        if let Some(id) = request_id {
+            builder = builder.header("RequestID", id);
         }
         if let Some(b) = body {
             builder = builder.json(b);

@@ -34,6 +34,7 @@
 //!         notification_url: None,
 //!         verification_url: None,
 //!         return_url: None,
+//!         duplicate_check: None,
 //!         billing_address: None,
 //!         credit_card: None,
 //!         customer: None,
@@ -42,7 +43,7 @@
 //!         fiscalization: None,
 //!         custom_fields: None,
 //!     };
-//!     let payment = client.create_payment(request).await?;
+//!     let payment = client.create_payment(request, None).await?;
 //!     println!("uid: {}", payment.uid);
 //!     Ok(())
 //! }

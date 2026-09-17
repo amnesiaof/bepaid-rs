@@ -41,6 +41,7 @@ let payment = client.create_payment(PaymentRequest {
     tracking_id: "order-123".into(),
     language: None,
     notification_url: None,
+    duplicate_check: None,
     billing_address: Some(BillingAddress {
         first_name: Some("John".into()),
         last_name: Some("Smith".into()),
@@ -59,6 +60,8 @@ let payment = client.create_payment(PaymentRequest {
         exp_year: 2030,
         save_card: Some(true),
         token: None,
+        skip_three_d_secure_verification: None,
+        force_three_d_secure_verification: None,
     }),
     customer: Some(Customer {
         first_name: Some("John".into()),
@@ -69,7 +72,7 @@ let payment = client.create_payment(PaymentRequest {
         birth_date: None,
     }),
     additional_data: None,
-})
+}, None)
 .await?;
 ```
 
@@ -83,6 +86,7 @@ let auth = client.create_authorization(AuthorizationRequest {
     payment_method_type: Some("credit_card".into()),
     tracking_id: "order-123".into(),
     test: Some(true),
+    duplicate_check: None,
     credit_card: Some(CreditCardRaw {
         number: "4242424242424242".into(),
         verification_value: "123".into(),
@@ -91,10 +95,13 @@ let auth = client.create_authorization(AuthorizationRequest {
         exp_year: 2030,
         save_card: Some(true),
         token: None,
+        skip_three_d_secure_verification: None,
+        force_three_d_secure_verification: None,
     }),
     customer: None,
     billing_address: None,
-})
+    verification_url: None,
+}, None)
 .await?;
 // redirect the customer to auth.redirect_url, then poll for the result:
 let tx = client.get_transaction(&auth.uid).await?;

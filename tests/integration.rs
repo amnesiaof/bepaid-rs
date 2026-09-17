@@ -3,14 +3,16 @@ use bepaid::{
     types::{
         ApmConfirmRequest, ApmPaymentRequest, ApmPayoutRequest, AuthorizationRequest,
         BalanceRequest, CancelSubscriptionRequest, CaptureRequest, ChargeCreditCard, ChargeRequest,
-        CheckoutRequest, CheckupRequest, CreateTokenRequest, CurrencyQueryRequest, CustomerRecord,
-        EripDevice, Fiscalization, FiscalizationPosition, FiscalizationTax, P2pRequest,
-        PaymentRequest, PayoutCreditCard, PayoutRequest, ProductCreateRequest,
+        CheckoutRequest, CheckupRequest, CreateTokenRequest, CreditCardRaw, CurrencyQueryRequest,
+        CustomerRecord, EripDevice, Fiscalization, FiscalizationPosition, FiscalizationTax,
+        P2pRequest, PaymentRequest, PayoutCreditCard, PayoutRequest, ProductCreateRequest,
         ProductUpdateRequest, ProofDocument, ProofRequest, RecipientTokenizationRequest,
-        RefundRequest, ReportListRequest, ReportParams, SubscriptionCreateRequest, VoidRequest,
+        RefundRequest, ReportListRequest, ReportParams, SubscriptionCreateRequest,
+        TokenizationRequest, VoidRequest,
     },
     webhook::{
-        parse_subscription_webhook, parse_webhook, verify_webhook_auth, verify_webhook_signature,
+        parse_checkout_webhook, parse_subscription_webhook, parse_webhook, verify_webhook_auth,
+        verify_webhook_signature,
     },
 };
 use wiremock::{
@@ -42,24 +44,28 @@ async fn create_payment_happy_path() {
 
     let c = client(&server);
     let resp = c
-        .create_payment(PaymentRequest {
-            amount: "700".into(),
-            currency: "USD".into(),
-            test: true,
-            description: "Test transaction".into(),
-            tracking_id: "tracking_id_000".into(),
-            language: None,
-            notification_url: None,
-            verification_url: None,
-            return_url: None,
-            billing_address: None,
-            credit_card: None,
-            customer: None,
-            additional_data: None,
-            encrypted_data: None,
-            fiscalization: None,
-            custom_fields: None,
-        })
+        .create_payment(
+            PaymentRequest {
+                amount: "700".into(),
+                currency: "USD".into(),
+                test: true,
+                description: "Test transaction".into(),
+                tracking_id: "tid".into(),
+                duplicate_check: None,
+                language: None,
+                notification_url: None,
+                verification_url: None,
+                return_url: None,
+                billing_address: None,
+                credit_card: None,
+                customer: None,
+                additional_data: None,
+                encrypted_data: None,
+                fiscalization: None,
+                custom_fields: None,
+            },
+            None,
+        )
         .await;
 
     let t = resp.expect("payment should succeed");
@@ -76,6 +82,7 @@ async fn create_payment_serializes_h2h_fields() {
             "request": {
                 "return_url": "https://example.com/return",
                 "verification_url": "https://example.com/verify",
+                "duplicate_check": false,
             }
         })))
         .respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({
@@ -86,24 +93,28 @@ async fn create_payment_serializes_h2h_fields() {
         .await;
 
     let c = client(&server);
-    c.create_payment(PaymentRequest {
-        amount: "700".into(),
-        currency: "USD".into(),
-        test: true,
-        description: "Test transaction".into(),
-        tracking_id: "tid".into(),
-        language: None,
-        notification_url: None,
-        verification_url: Some("https://example.com/verify".into()),
-        return_url: Some("https://example.com/return".into()),
-        billing_address: None,
-        credit_card: None,
-        customer: None,
-        additional_data: None,
-        encrypted_data: None,
-        fiscalization: None,
-        custom_fields: None,
-    })
+    c.create_payment(
+        PaymentRequest {
+            amount: "700".into(),
+            currency: "USD".into(),
+            test: true,
+            description: "Test transaction".into(),
+            tracking_id: "tid".into(),
+            duplicate_check: Some(false),
+            language: None,
+            notification_url: None,
+            verification_url: Some("https://example.com/verify".into()),
+            return_url: Some("https://example.com/return".into()),
+            billing_address: None,
+            credit_card: None,
+            customer: None,
+            additional_data: None,
+            encrypted_data: None,
+            fiscalization: None,
+            custom_fields: None,
+        },
+        None,
+    )
     .await
     .expect("payment should succeed");
 }
@@ -140,43 +151,47 @@ async fn create_payment_serializes_fiscalization_and_encrypted_data() {
         .await;
 
     let c = client(&server);
-    c.create_payment(PaymentRequest {
-        amount: "700".into(),
-        currency: "USD".into(),
-        test: true,
-        description: "Test transaction".into(),
-        tracking_id: "tid".into(),
-        language: None,
-        notification_url: None,
-        verification_url: None,
-        return_url: None,
-        billing_address: None,
-        credit_card: None,
-        customer: None,
-        additional_data: None,
-        encrypted_data: Some("jwe-blob".into()),
-        fiscalization: Some(Fiscalization {
-            external_id: "fisc-1".into(),
-            positions: vec![FiscalizationPosition {
-                name: "Product".into(),
-                position_type: "service".into(),
-                amount: 100,
-                quantity: 1.0,
-                measure_unit_code: 796,
-                description: Some("Desc".into()),
-                untaxed: false,
-                nomenclature_code: Some("code-1".into()),
-                taxes: Some(vec![FiscalizationTax {
-                    id: "vat-12".into(),
-                    percent: "12".into(),
-                    tax_type: "vat".into(),
-                    description: None,
-                    inclusive: true,
-                }]),
-            }],
-        }),
-        custom_fields: None,
-    })
+    c.create_payment(
+        PaymentRequest {
+            amount: "700".into(),
+            currency: "USD".into(),
+            test: true,
+            description: "Test transaction".into(),
+            tracking_id: "tid".into(),
+            duplicate_check: None,
+            language: None,
+            notification_url: None,
+            verification_url: None,
+            return_url: None,
+            billing_address: None,
+            credit_card: None,
+            customer: None,
+            additional_data: None,
+            encrypted_data: Some("jwe-blob".into()),
+            fiscalization: Some(Fiscalization {
+                external_id: "fisc-1".into(),
+                positions: vec![FiscalizationPosition {
+                    name: "Product".into(),
+                    position_type: "service".into(),
+                    amount: 100,
+                    quantity: 1.0,
+                    measure_unit_code: 796,
+                    description: Some("Desc".into()),
+                    untaxed: false,
+                    nomenclature_code: Some("code-1".into()),
+                    taxes: Some(vec![FiscalizationTax {
+                        id: "vat-12".into(),
+                        percent: "12".into(),
+                        tax_type: "vat".into(),
+                        description: None,
+                        inclusive: true,
+                    }]),
+                }],
+            }),
+            custom_fields: None,
+        },
+        None,
+    )
     .await
     .expect("payment should succeed");
 }
@@ -197,24 +212,28 @@ async fn create_payment_rejects_invalid_amount() {
 
     let c = client(&server);
     let err = c
-        .create_payment(PaymentRequest {
-            amount: "".into(),
-            currency: "USD".into(),
-            test: true,
-            description: "d".into(),
-            tracking_id: "t".into(),
-            language: None,
-            notification_url: None,
-            verification_url: None,
-            return_url: None,
-            billing_address: None,
-            credit_card: None,
-            customer: None,
-            additional_data: None,
-            encrypted_data: None,
-            fiscalization: None,
-            custom_fields: None,
-        })
+        .create_payment(
+            PaymentRequest {
+                amount: "".into(),
+                currency: "USD".into(),
+                test: true,
+                description: "d".into(),
+                tracking_id: "t".into(),
+                duplicate_check: None,
+                language: None,
+                notification_url: None,
+                verification_url: None,
+                return_url: None,
+                billing_address: None,
+                credit_card: None,
+                customer: None,
+                additional_data: None,
+                encrypted_data: None,
+                fiscalization: None,
+                custom_fields: None,
+            },
+            None,
+        )
         .await
         .expect_err("should error");
 
@@ -233,6 +252,12 @@ async fn create_authorization_returns_redirect() {
     let server = MockServer::start().await;
     Mock::given(method("POST"))
         .and(path("/transactions/authorizations"))
+        .and(body_partial_json(serde_json::json!({
+            "request": {
+                "tracking_id": "x",
+                "duplicate_check": false,
+            }
+        })))
         .respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({
             "transaction": {
                 "uid": "b6c446e4-b8a8-496f-bbc8-497d34644c7b",
@@ -251,18 +276,23 @@ async fn create_authorization_returns_redirect() {
 
     let c = client(&server);
     let t = c
-        .create_authorization(AuthorizationRequest {
-            amount: 100,
-            currency: "USD".into(),
-            description: "Test".into(),
-            payment_method_type: None,
-            tracking_id: "x".into(),
-            test: Some(true),
-            credit_card: None,
-            customer: None,
-            billing_address: None,
-            custom_fields: None,
-        })
+        .create_authorization(
+            AuthorizationRequest {
+                amount: 100,
+                currency: "USD".into(),
+                description: "Test".into(),
+                payment_method_type: None,
+                tracking_id: "x".into(),
+                test: Some(true),
+                duplicate_check: Some(false),
+                credit_card: None,
+                customer: None,
+                billing_address: None,
+                verification_url: None,
+                custom_fields: None,
+            },
+            None,
+        )
         .await
         .expect("auth should succeed");
 
@@ -298,12 +328,15 @@ async fn capture_happy_path() {
 
     let c = client(&server);
     let t = c
-        .capture(CaptureRequest {
-            parent_uid: "4298aabd".into(),
-            amount: 460,
-            tracking_id: None,
-            additional_data: None,
-        })
+        .capture(
+            CaptureRequest {
+                parent_uid: "4298aabd".into(),
+                amount: 460,
+                tracking_id: None,
+                additional_data: None,
+            },
+            None,
+        )
         .await
         .expect("capture should succeed");
 
@@ -331,12 +364,15 @@ async fn void_happy_path() {
 
     let c = client(&server);
     let t = c
-        .void(VoidRequest {
-            parent_uid: "auth-uid".into(),
-            amount: 50,
-            tracking_id: Some("tracking_id_1".into()),
-            additional_data: None,
-        })
+        .void(
+            VoidRequest {
+                parent_uid: "auth-uid".into(),
+                amount: 50,
+                tracking_id: Some("tracking_id_1".into()),
+                additional_data: None,
+            },
+            None,
+        )
         .await
         .expect("void should succeed");
 
@@ -364,13 +400,16 @@ async fn refund_happy_path() {
 
     let c = client(&server);
     let t = c
-        .refund(RefundRequest {
-            parent_uid: "1-310b0da80b".into(),
-            amount: 50,
-            reason: "Client request".into(),
-            tracking_id: None,
-            additional_data: None,
-        })
+        .refund(
+            RefundRequest {
+                parent_uid: "1-310b0da80b".into(),
+                amount: 50,
+                reason: "Client request".into(),
+                tracking_id: None,
+                additional_data: None,
+            },
+            None,
+        )
         .await
         .expect("refund should succeed");
 
@@ -671,7 +710,7 @@ async fn apm_payment_happy_path() {
             payment_method: serde_json::json!({"type": "mts_money", "confirm_agreement": "accept"}),
             additional_data: None,
             custom_fields: None,
-        })
+        }, None)
         .await
         .expect("apm should succeed");
 
@@ -713,7 +752,7 @@ async fn apm_payment_constructors_serialize() {
             .mount(&server)
             .await;
         let t = c
-            .create_apm_payment(req.clone())
+            .create_apm_payment(req.clone(), None)
             .await
             .expect("apm should succeed");
         assert_eq!(t.status.as_deref(), Some("pending"));
@@ -762,7 +801,10 @@ async fn apm_payment_constructors_serialize() {
         .expect(1)
         .mount(&server)
         .await;
-    let t = c.create_apm_payment(req).await.expect("apm should succeed");
+    let t = c
+        .create_apm_payment(req, None)
+        .await
+        .expect("apm should succeed");
     assert_eq!(t.status.as_deref(), Some("pending"));
 }
 
@@ -785,13 +827,16 @@ async fn apm_refund_happy_path() {
 
     let c = client(&server);
     let t = c
-        .apm_refund(bepaid::types::ApmRefundRequest {
-            parent_uid: "1-310b0da80b".into(),
-            reason: "reason".into(),
-            amount: Some(50),
-            tracking_id: None,
-            additional_data: None,
-        })
+        .apm_refund(
+            bepaid::types::ApmRefundRequest {
+                parent_uid: "1-310b0da80b".into(),
+                reason: "reason".into(),
+                amount: Some(50),
+                tracking_id: None,
+                additional_data: None,
+            },
+            None,
+        )
         .await
         .expect("refund should succeed");
 
@@ -825,6 +870,39 @@ async fn webhook_verify_and_parse() {
     assert_eq!(n.transaction.uid, "566fd40a-2379-46d6-aecd-67779afcf883");
     assert_eq!(n.transaction.status, "pending");
     assert_eq!(n.transaction.tx_type, "payment");
+}
+
+#[tokio::test]
+async fn checkout_webhook_parses() {
+    let body = r#"{
+        "token": "311300d08dc7f22ae37272fac6513921d4c99ca24dcaccf4392a2606fe8f1877",
+        "shop_id": 363,
+        "transaction_type": "payment",
+        "gateway_response": null,
+        "order": {"currency": "USD", "amount": 4299},
+        "settings": {"language": "en"},
+        "customer": {"email": "jake@example.com"},
+        "finished": false,
+        "expired": true,
+        "shop": {"name": "Shop"},
+        "test": false,
+        "status": "error",
+        "message": "Token is expired.",
+        "payment_method": {"types": ["erip"]}
+    }"#;
+
+    let s = parse_checkout_webhook(body).expect("should parse");
+    assert_eq!(
+        s.token.as_deref(),
+        Some("311300d08dc7f22ae37272fac6513921d4c99ca24dcaccf4392a2606fe8f1877")
+    );
+    assert_eq!(s.expired, Some(true));
+    assert_eq!(s.finished, Some(false));
+    assert_eq!(s.test, Some(false));
+    assert_eq!(s.status.as_deref(), Some("error"));
+    assert_eq!(s.message.as_deref(), Some("Token is expired."));
+    assert!(s.customer.is_some());
+    assert!(s.payment_method.is_some());
 }
 
 #[tokio::test]
@@ -1074,6 +1152,7 @@ async fn apm_confirm_happy_path() {
                 skip_duplicate_check: Some(false),
                 transaction_reference: "receipt-123".into(),
             },
+            None,
         )
         .await
         .expect("confirm should succeed");
@@ -1179,58 +1258,61 @@ async fn payout_happy_path() {
 
     let c = client(&server);
     let p = c
-        .create_payout(PayoutRequest {
-            test: Some(true),
-            amount: 100,
-            currency: "USD".into(),
-            description: Some("Payout".into()),
-            tracking_id: Some("payout-1".into()),
-            recipient: bepaid::types::Customer {
-                first_name: None,
-                last_name: None,
-                ip: Some("127.0.0.1".into()),
-                email: Some("john@example.com".into()),
-                device_id: None,
-                birth_date: Some("1990-10-20".into()),
-                phone: None,
-                external_id: None,
-                taxpayer_id: None,
+        .create_payout(
+            PayoutRequest {
+                test: Some(true),
+                amount: 100,
+                currency: "USD".into(),
+                description: Some("Payout".into()),
+                tracking_id: Some("payout-1".into()),
+                recipient: bepaid::types::Customer {
+                    first_name: None,
+                    last_name: None,
+                    ip: Some("127.0.0.1".into()),
+                    email: Some("john@example.com".into()),
+                    device_id: None,
+                    birth_date: Some("1990-10-20".into()),
+                    phone: None,
+                    external_id: None,
+                    taxpayer_id: None,
+                },
+                sender: bepaid::types::Customer {
+                    first_name: None,
+                    last_name: None,
+                    ip: Some("127.0.0.1".into()),
+                    email: Some("john@example.com".into()),
+                    device_id: None,
+                    birth_date: Some("1990-10-20".into()),
+                    phone: None,
+                    external_id: None,
+                    taxpayer_id: None,
+                },
+                recipient_billing_address: bepaid::types::BillingAddress {
+                    first_name: None,
+                    last_name: None,
+                    country: Some("US".into()),
+                    city: Some("Denver".into()),
+                    state: Some("CO".into()),
+                    zip: Some("96002".into()),
+                    address: Some("1st Street".into()),
+                    phone: None,
+                },
+                sender_billing_address: bepaid::types::BillingAddress {
+                    first_name: None,
+                    last_name: None,
+                    country: Some("US".into()),
+                    city: Some("Denver".into()),
+                    state: Some("CO".into()),
+                    zip: Some("96002".into()),
+                    address: Some("1st Street".into()),
+                    phone: None,
+                },
+                recipient_credit_card: None,
+                additional_data: None,
+                custom_fields: None,
             },
-            sender: bepaid::types::Customer {
-                first_name: None,
-                last_name: None,
-                ip: Some("127.0.0.1".into()),
-                email: Some("john@example.com".into()),
-                device_id: None,
-                birth_date: Some("1990-10-20".into()),
-                phone: None,
-                external_id: None,
-                taxpayer_id: None,
-            },
-            recipient_billing_address: bepaid::types::BillingAddress {
-                first_name: None,
-                last_name: None,
-                country: Some("US".into()),
-                city: Some("Denver".into()),
-                state: Some("CO".into()),
-                zip: Some("96002".into()),
-                address: Some("1st Street".into()),
-                phone: None,
-            },
-            sender_billing_address: bepaid::types::BillingAddress {
-                first_name: None,
-                last_name: None,
-                country: Some("US".into()),
-                city: Some("Denver".into()),
-                state: Some("CO".into()),
-                zip: Some("96002".into()),
-                address: Some("1st Street".into()),
-                phone: None,
-            },
-            recipient_credit_card: None,
-            additional_data: None,
-            custom_fields: None,
-        })
+            None,
+        )
         .await
         .expect("payout should succeed");
 
@@ -1681,32 +1763,35 @@ async fn charge_saved_card_happy_path() {
 
     let c = client(&server);
     let t = c
-        .charge_saved_card(ChargeRequest {
-            amount: 700,
-            currency: "USD".into(),
-            description: "Recurring charge".into(),
-            tracking_id: Some("order-7000".into()),
-            expired_at: None,
-            duplicate_check: None,
-            dynamic_billing_descriptor: None,
-            language: None,
-            notification_url: None,
-            verification_url: None,
-            return_url: None,
-            test: Some(true),
-            force_three_d_secure_verification: None,
-            credit_card: ChargeCreditCard {
-                number: None,
-                verification_value: None,
-                holder: None,
-                exp_month: None,
-                exp_year: None,
-                token: Some("tok_123".into()),
-                skip_three_d_secure_verification: None,
+        .charge_saved_card(
+            ChargeRequest {
+                amount: 700,
+                currency: "USD".into(),
+                description: "Recurring charge".into(),
+                tracking_id: Some("order-7000".into()),
+                expired_at: None,
+                duplicate_check: None,
+                dynamic_billing_descriptor: None,
+                language: None,
+                notification_url: None,
+                verification_url: None,
+                return_url: None,
+                test: Some(true),
+                force_three_d_secure_verification: None,
+                credit_card: ChargeCreditCard {
+                    number: None,
+                    verification_value: None,
+                    holder: None,
+                    exp_month: None,
+                    exp_year: None,
+                    token: Some("tok_123".into()),
+                    skip_three_d_secure_verification: None,
+                },
+                customer: None,
+                additional_data: None,
             },
-            customer: None,
-            additional_data: None,
-        })
+            None,
+        )
         .await
         .expect("charge should succeed");
     assert_eq!(t.uid, "1-310b0da80b");
@@ -1751,6 +1836,88 @@ async fn recipient_tokenization_happy_path() {
 
     assert_eq!(resp["transaction"]["uid"], "1-310b0da80b");
     assert_eq!(resp["transaction"]["status"], "pending");
+}
+
+#[tokio::test]
+async fn create_tokenization_happy_path() {
+    let server = MockServer::start().await;
+    Mock::given(method("POST"))
+        .and(path("/transactions/tokenizations"))
+        .and(wiremock::matchers::header("x-api-version", "3"))
+        .and(wiremock::matchers::header("authorization", AUTH))
+        .and(body_partial_json(serde_json::json!({
+            "request": {
+                "credit_card": {
+                    "number": "4242424242424242",
+                    "skip_three_d_secure_verification": false,
+                },
+            }
+        })))
+        .respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({
+            "transaction": {
+                "uid": "e89abc1a-1d18-4d0f-83a1-7009b333dce0",
+                "status": "successful",
+                "type": "tokenization",
+                "credit_card": {
+                    "brand": "visa",
+                    "last_4": "1097",
+                    "token": "e3ba5977-8705-4496-bf90-a6a93d3d31cc"
+                },
+                "tokenization": {
+                    "gateway_id": 3483,
+                    "status": "successful"
+                }
+            }
+        })))
+        .expect(1)
+        .mount(&server)
+        .await;
+
+    let c = client(&server);
+    let t = c
+        .create_tokenization(
+            TokenizationRequest {
+                amount: 100,
+                currency: "USD".into(),
+                description: "Test transaction".into(),
+                tracking_id: None,
+                duplicate_check: None,
+                dynamic_billing_descriptor: None,
+                language: None,
+                notification_url: None,
+                verification_url: None,
+                return_url: None,
+                test: Some(true),
+                billing_address: None,
+                credit_card: Some(CreditCardRaw {
+                    number: "4242424242424242".into(),
+                    verification_value: "123".into(),
+                    holder: "John Smith".into(),
+                    exp_month: 10,
+                    exp_year: 2030,
+                    save_card: None,
+                    token: None,
+                    skip_three_d_secure_verification: Some(false),
+                    force_three_d_secure_verification: None,
+                }),
+                three_d_secure: None,
+                travel: None,
+                customer: None,
+                additional_data: None,
+            },
+            None,
+        )
+        .await
+        .expect("tokenization should succeed");
+
+    assert_eq!(t.uid, "e89abc1a-1d18-4d0f-83a1-7009b333dce0");
+    assert_eq!(
+        t.credit_card.and_then(|c| c.token).as_deref(),
+        Some("e3ba5977-8705-4496-bf90-a6a93d3d31cc")
+    );
+    let tokenization = t.tokenization.expect("tokenization info present");
+    assert_eq!(tokenization.gateway_id, Some(3483));
+    assert_eq!(tokenization.status.as_deref(), Some("successful"));
 }
 
 #[tokio::test]
@@ -1860,22 +2027,25 @@ async fn apm_payout_happy_path() {
 
     let c = client(&server);
     let p = c
-        .apm_payout(ApmPayoutRequest {
-            amount: 100,
-            currency: "USD".into(),
-            description: "payout".into(),
-            test: None,
-            tracking_id: None,
-            ip: None,
-            language: None,
-            notification_url: None,
-            verification_url: None,
-            return_url: None,
-            customer: None,
-            method: serde_json::json!({"type": "ad_payments"}),
-            additional_data: None,
-            custom_fields: None,
-        })
+        .apm_payout(
+            ApmPayoutRequest {
+                amount: 100,
+                currency: "USD".into(),
+                description: "payout".into(),
+                test: None,
+                tracking_id: None,
+                ip: None,
+                language: None,
+                notification_url: None,
+                verification_url: None,
+                return_url: None,
+                customer: None,
+                method: serde_json::json!({"type": "ad_payments"}),
+                additional_data: None,
+                custom_fields: None,
+            },
+            None,
+        )
         .await
         .expect("payout should succeed");
 
@@ -1934,6 +2104,7 @@ async fn apm_proof_happy_path() {
                     checksum: "sha256...".into(),
                 },
             },
+            None,
         )
         .await
         .expect("proof should succeed");
@@ -1972,31 +2143,74 @@ async fn checkup_happy_path() {
 
     let c = client(&server);
     let t = c
-        .checkup(CheckupRequest {
-            amount: 100,
-            currency: "USD".into(),
-            description: "checkup".into(),
-            tracking_id: "tracking_1".into(),
-            language: None,
-            notification_url: None,
-            verification_url: None,
-            test: None,
-            credit_card: Some(ChargeCreditCard {
-                number: None,
-                verification_value: None,
-                holder: None,
-                exp_month: None,
-                exp_year: None,
-                token: Some("tok1".into()),
-                skip_three_d_secure_verification: None,
-            }),
-            customer: None,
-            billing_address: None,
-            additional_data: None,
-        })
+        .checkup(
+            CheckupRequest {
+                amount: 100,
+                currency: "USD".into(),
+                description: "checkup".into(),
+                tracking_id: "tracking_1".into(),
+                language: None,
+                notification_url: None,
+                verification_url: None,
+                test: None,
+                credit_card: Some(ChargeCreditCard {
+                    number: None,
+                    verification_value: None,
+                    holder: None,
+                    exp_month: None,
+                    exp_year: None,
+                    token: Some("tok1".into()),
+                    skip_three_d_secure_verification: None,
+                }),
+                customer: None,
+                billing_address: None,
+                additional_data: None,
+            },
+            None,
+        )
         .await
         .expect("checkup should succeed");
 
     assert_eq!(t.status.as_deref(), Some("successful"));
     assert_eq!(t.amount, Some(100));
+}
+
+#[tokio::test]
+async fn create_payment_sends_request_id_header() {
+    let server = MockServer::start().await;
+    Mock::given(method("POST"))
+        .and(path("/transactions/payments"))
+        .and(wiremock::matchers::header("requestid", "uuid-request-1"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({
+            "transaction": {"tracking_id": "t1", "uid": "u1"}
+        })))
+        .expect(1)
+        .mount(&server)
+        .await;
+
+    let c = client(&server);
+    c.create_payment(
+        PaymentRequest {
+            amount: "700".into(),
+            currency: "USD".into(),
+            test: true,
+            description: "Test".into(),
+            tracking_id: "t1".into(),
+            duplicate_check: None,
+            language: None,
+            notification_url: None,
+            verification_url: None,
+            return_url: None,
+            billing_address: None,
+            credit_card: None,
+            customer: None,
+            additional_data: None,
+            custom_fields: None,
+            encrypted_data: None,
+            fiscalization: None,
+        },
+        Some("uuid-request-1"),
+    )
+    .await
+    .expect("payment with request id should succeed");
 }

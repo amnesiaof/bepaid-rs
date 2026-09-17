@@ -6,7 +6,7 @@ use rsa::signature::hazmat::PrehashVerifier;
 use sha2::{Digest, Sha256};
 
 use crate::error::BepaidError;
-use crate::types::{Subscription, WebhookNotification};
+use crate::types::{CheckoutStatus, Subscription, WebhookNotification};
 
 /// Verify the Basic-auth credentials of a bePaid webhook sender.
 /// Always do this before trusting a notification payload.
@@ -77,5 +77,12 @@ pub fn parse_webhook(body: &str) -> Result<WebhookNotification, serde_json::Erro
 /// Parse a subscription-service webhook payload (`event`, e.g.
 /// `created.subscription`).
 pub fn parse_subscription_webhook(body: &str) -> Result<Subscription, serde_json::Error> {
+    serde_json::from_str(body)
+}
+
+/// Parse a payment-widget webhook payload (flat checkout-shaped
+/// notification, e.g. a token-expiry notice without a `transaction`
+/// envelope).
+pub fn parse_checkout_webhook(body: &str) -> Result<CheckoutStatus, serde_json::Error> {
     serde_json::from_str(body)
 }

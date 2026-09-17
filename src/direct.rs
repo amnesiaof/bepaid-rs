@@ -21,13 +21,15 @@ impl BepaidClient {
     pub async fn create_apm_payment(
         &self,
         req: ApmPaymentRequest,
+        request_id: Option<&str>,
     ) -> Result<ApmPaymentResponse, BepaidError> {
         let envelope: ApmPaymentEnvelope = self
-            .request_json(
+            .request_json_with_id(
                 Method::POST,
                 &self.api("/beyag/transactions/payments"),
                 Some(&RequestEnvelope { request: req }),
                 None,
+                request_id,
             )
             .await?;
         Ok(envelope.transaction)
@@ -37,13 +39,15 @@ impl BepaidClient {
     pub async fn apm_refund(
         &self,
         req: ApmRefundRequest,
+        request_id: Option<&str>,
     ) -> Result<ApmRefundResponse, BepaidError> {
         let envelope: ApmRefundEnvelope = self
-            .request_json(
+            .request_json_with_id(
                 Method::POST,
                 &self.api("/beyag/transactions/refunds"),
                 Some(&RequestEnvelope { request: req }),
                 None,
+                request_id,
             )
             .await?;
         Ok(envelope.transaction)
@@ -56,6 +60,7 @@ impl BepaidClient {
         parent_uid: &str,
         reason: &str,
         amount: Option<i64>,
+        request_id: Option<&str>,
     ) -> Result<ApmRefundResponse, BepaidError> {
         let req = ApmRefundRequest {
             parent_uid: parent_uid.to_owned(),
@@ -65,11 +70,12 @@ impl BepaidClient {
             additional_data: None,
         };
         let envelope: ApmRefundEnvelope = self
-            .request_json(
+            .request_json_with_id(
                 Method::POST,
                 &self.api("/beyag/refunds"),
                 Some(&RequestEnvelope { request: req }),
                 None,
+                request_id,
             )
             .await?;
         Ok(envelope.transaction)
@@ -80,13 +86,15 @@ impl BepaidClient {
         &self,
         uid: &str,
         req: ApmConfirmRequest,
+        request_id: Option<&str>,
     ) -> Result<ApmConfirmResponse, BepaidError> {
         let envelope: ApmConfirmEnvelope = self
-            .request_json(
+            .request_json_with_id(
                 Method::POST,
                 &self.api(&format!("/beyag/transactions/{uid}/confirm")),
                 Some(&req),
                 None,
+                request_id,
             )
             .await?;
         Ok(envelope.response)
@@ -125,13 +133,15 @@ impl BepaidClient {
     pub async fn apm_payout(
         &self,
         req: ApmPayoutRequest,
+        request_id: Option<&str>,
     ) -> Result<ApmPayoutResponse, BepaidError> {
         let envelope: ApmPayoutEnvelope = self
-            .request_json(
+            .request_json_with_id(
                 Method::POST,
                 &self.api("/beyag/transactions/payouts"),
                 Some(&RequestEnvelope { request: req }),
                 None,
+                request_id,
             )
             .await?;
         Ok(envelope.transaction)
@@ -142,26 +152,33 @@ impl BepaidClient {
         &self,
         uid: &str,
         req: ProofRequest,
+        request_id: Option<&str>,
     ) -> Result<ProofResponse, BepaidError> {
         let envelope: ProofEnvelope = self
-            .request_json(
+            .request_json_with_id(
                 Method::POST,
                 &self.api(&format!("/beyag/transactions/{uid}/proof")),
                 Some(&RequestEnvelope { request: req }),
                 None,
+                request_id,
             )
             .await?;
         Ok(envelope.transaction)
     }
 
     /// Run a pre-authorization risk check on a card.
-    pub async fn checkup(&self, req: CheckupRequest) -> Result<Transaction, BepaidError> {
+    pub async fn checkup(
+        &self,
+        req: CheckupRequest,
+        request_id: Option<&str>,
+    ) -> Result<Transaction, BepaidError> {
         let envelope: TransactionEnvelopeFull = self
-            .request_json(
+            .request_json_with_id(
                 Method::POST,
                 &self.gateway("/transactions/checkups"),
                 Some(&RequestEnvelope { request: req }),
                 Some("3"),
+                request_id,
             )
             .await?;
         Ok(envelope.transaction)

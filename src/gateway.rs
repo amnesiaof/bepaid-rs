@@ -10,8 +10,8 @@ use crate::types::{
     AuthorizationEnvelope, AuthorizationRequest, AuthorizationResponse, CaptureEnvelope,
     CaptureRequest, CaptureResponse, ChargeRequest, PaymentRequest, PaymentResponse,
     PayoutEnvelope, PayoutRequest, PayoutResponse, RecipientTokenizationRequest, RefundEnvelope,
-    RefundRequest, RefundResponse, TrackingIdStatus, Transaction, TransactionEnvelope,
-    TransactionEnvelopeFull, VoidEnvelope, VoidRequest, VoidResponse,
+    RefundRequest, RefundResponse, TokenizationRequest, TrackingIdStatus, Transaction,
+    TransactionEnvelope, TransactionEnvelopeFull, VoidEnvelope, VoidRequest, VoidResponse,
 };
 
 impl BepaidClient {
@@ -36,6 +36,7 @@ impl BepaidClient {
     ///         notification_url: None,
     ///         verification_url: None,
     ///         return_url: None,
+    ///         duplicate_check: None,
     ///         billing_address: None,
     ///         credit_card: Some(CreditCardRaw {
     ///             number: "4242424242424242".to_owned(),
@@ -45,6 +46,8 @@ impl BepaidClient {
     ///             exp_year: 2030,
     ///             save_card: None,
     ///             token: None,
+    ///             skip_three_d_secure_verification: None,
+    ///             force_three_d_secure_verification: None,
     ///         }),
     ///         customer: None,
     ///         additional_data: None,
@@ -52,7 +55,7 @@ impl BepaidClient {
     ///         fiscalization: None,
     ///         custom_fields: None,
     ///     };
-    ///     let payment = client.create_payment(request).await?;
+    ///     let payment = client.create_payment(request, None).await?;
     ///     println!("uid: {}", payment.uid);
     ///     Ok(())
     /// }
@@ -60,13 +63,15 @@ impl BepaidClient {
     pub async fn create_payment(
         &self,
         req: PaymentRequest,
+        request_id: Option<&str>,
     ) -> Result<PaymentResponse, BepaidError> {
         let envelope: TransactionEnvelope = self
-            .request_json(
+            .request_json_with_id(
                 Method::POST,
                 &self.gateway("/transactions/payments"),
                 Some(&RequestEnvelope { request: req }),
                 Some("3"),
+                request_id,
             )
             .await?;
         Ok(envelope.transaction)
@@ -90,6 +95,7 @@ impl BepaidClient {
     ///         payment_method_type: None,
     ///         tracking_id: "order-124".to_owned(),
     ///         test: Some(true),
+    ///         duplicate_check: None,
     ///         credit_card: Some(CreditCardRaw {
     ///             number: "4242424242424242".to_owned(),
     ///             verification_value: "123".to_owned(),
@@ -98,12 +104,15 @@ impl BepaidClient {
     ///             exp_year: 2030,
     ///             save_card: None,
     ///             token: None,
+    ///             skip_three_d_secure_verification: None,
+    ///             force_three_d_secure_verification: None,
     ///         }),
     ///         customer: None,
     ///         billing_address: None,
+    ///         verification_url: None,
     ///         custom_fields: None,
     ///     };
-    ///     let authorization = client.create_authorization(request).await?;
+    ///     let authorization = client.create_authorization(request, None).await?;
     ///     if let Some(url) = authorization.redirect_url {
     ///         // send the customer to url for 3-D Secure, then poll the transaction
     ///         println!("redirect: {url}");
@@ -114,52 +123,69 @@ impl BepaidClient {
     pub async fn create_authorization(
         &self,
         req: AuthorizationRequest,
+        request_id: Option<&str>,
     ) -> Result<AuthorizationResponse, BepaidError> {
         let envelope: AuthorizationEnvelope = self
-            .request_json(
+            .request_json_with_id(
                 Method::POST,
                 &self.gateway("/transactions/authorizations"),
                 Some(&RequestEnvelope { request: req }),
                 Some("3"),
+                request_id,
             )
             .await?;
         Ok(envelope.transaction)
     }
 
     /// Capture previously authorized funds.
-    pub async fn capture(&self, req: CaptureRequest) -> Result<CaptureResponse, BepaidError> {
+    pub async fn capture(
+        &self,
+        req: CaptureRequest,
+        request_id: Option<&str>,
+    ) -> Result<CaptureResponse, BepaidError> {
         let envelope: CaptureEnvelope = self
-            .request_json(
+            .request_json_with_id(
                 Method::POST,
                 &self.gateway("/transactions/captures"),
                 Some(&RequestEnvelope { request: req }),
                 Some("3"),
+                request_id,
             )
             .await?;
         Ok(envelope.transaction)
     }
 
     /// Void a previously authorized transaction.
-    pub async fn void(&self, req: VoidRequest) -> Result<VoidResponse, BepaidError> {
+    pub async fn void(
+        &self,
+        req: VoidRequest,
+        request_id: Option<&str>,
+    ) -> Result<VoidResponse, BepaidError> {
         let envelope: VoidEnvelope = self
-            .request_json(
+            .request_json_with_id(
                 Method::POST,
                 &self.gateway("/transactions/voids"),
                 Some(&RequestEnvelope { request: req }),
                 Some("3"),
+                request_id,
             )
             .await?;
         Ok(envelope.transaction)
     }
 
     /// Full or partial refund of a payment.
-    pub async fn refund(&self, req: RefundRequest) -> Result<RefundResponse, BepaidError> {
+    pub async fn refund(
+        &self,
+        req: RefundRequest,
+        request_id: Option<&str>,
+    ) -> Result<RefundResponse, BepaidError> {
         let envelope: RefundEnvelope = self
-            .request_json(
+            .request_json_with_id(
                 Method::POST,
                 &self.gateway("/transactions/refunds"),
                 Some(&RequestEnvelope { request: req }),
                 Some("3"),
+                request_id,
             )
             .await?;
         Ok(envelope.transaction)
@@ -209,13 +235,18 @@ impl BepaidClient {
     }
 
     /// Create a card payout from the merchant balance.
-    pub async fn create_payout(&self, req: PayoutRequest) -> Result<PayoutResponse, BepaidError> {
+    pub async fn create_payout(
+        &self,
+        req: PayoutRequest,
+        request_id: Option<&str>,
+    ) -> Result<PayoutResponse, BepaidError> {
         let envelope: PayoutEnvelope = self
-            .request_json(
+            .request_json_with_id(
                 Method::POST,
                 &self.gateway("/transactions/payouts"),
                 Some(&RequestEnvelope { request: req }),
                 Some("3"),
+                request_id,
             )
             .await?;
         Ok(envelope.transaction)
@@ -262,18 +293,92 @@ impl BepaidClient {
     ///         customer: None,
     ///         additional_data: None,
     ///     };
-    ///     let charge = client.charge_saved_card(request).await?;
+    ///     let charge = client.charge_saved_card(request, None).await?;
     ///     println!("uid: {}", charge.uid);
     ///     Ok(())
     /// }
     /// ```
-    pub async fn charge_saved_card(&self, req: ChargeRequest) -> Result<Transaction, BepaidError> {
+    pub async fn charge_saved_card(
+        &self,
+        req: ChargeRequest,
+        request_id: Option<&str>,
+    ) -> Result<Transaction, BepaidError> {
         let envelope: TransactionEnvelopeFull = self
-            .request_json(
+            .request_json_with_id(
                 Method::POST,
                 &self.gateway("/services/credit_cards/charges"),
                 Some(&RequestEnvelope { request: req }),
                 Some("3"),
+                request_id,
+            )
+            .await?;
+        Ok(envelope.transaction)
+    }
+
+    /// Tokenize a card as a 3-D Secure transaction.
+    ///
+    /// POST `/transactions/tokenizations` (X-API-Version 3). No money moves: the
+    /// returned `credit_card.token` is used for later payments. Sending the
+    /// customer through 3-D Secure may require `verification_url` and
+    /// `return_url`; poll the transaction afterwards.
+    ///
+    /// # Example
+    ///
+    /// ```no_run
+    /// use bepaid::BepaidClient;
+    /// use bepaid::types::{CreditCardRaw, TokenizationRequest};
+    ///
+    /// #[tokio::main]
+    /// async fn main() -> Result<(), bepaid::BepaidError> {
+    ///     let client = BepaidClient::new("shop_id", "secret_key");
+    ///     let request = TokenizationRequest {
+    ///         amount: 700,
+    ///         currency: "BYN".to_owned(),
+    ///         description: "Tokenize card".to_owned(),
+    ///         tracking_id: None,
+    ///         duplicate_check: None,
+    ///         dynamic_billing_descriptor: None,
+    ///         language: None,
+    ///         notification_url: None,
+    ///         verification_url: None,
+    ///         return_url: None,
+    ///         test: Some(true),
+    ///         billing_address: None,
+    ///         credit_card: Some(CreditCardRaw {
+    ///             number: "4242424242424242".to_owned(),
+    ///             verification_value: "123".to_owned(),
+    ///             holder: "John Smith".to_owned(),
+    ///             exp_month: 10,
+    ///             exp_year: 2030,
+    ///             save_card: None,
+    ///             token: None,
+    ///             skip_three_d_secure_verification: None,
+    ///             force_three_d_secure_verification: None,
+    ///         }),
+    ///         three_d_secure: None,
+    ///         travel: None,
+    ///         customer: None,
+    ///         additional_data: None,
+    ///     };
+    ///     let result = client.create_tokenization(request, None).await?;
+    ///     if let Some(token) = result.credit_card.and_then(|c| c.token) {
+    ///         println!("card token: {token}");
+    ///     }
+    ///     Ok(())
+    /// }
+    /// ```
+    pub async fn create_tokenization(
+        &self,
+        req: TokenizationRequest,
+        request_id: Option<&str>,
+    ) -> Result<Transaction, BepaidError> {
+        let envelope: TransactionEnvelopeFull = self
+            .request_json_with_id(
+                Method::POST,
+                &self.gateway("/transactions/tokenizations"),
+                Some(&RequestEnvelope { request: req }),
+                Some("3"),
+                request_id,
             )
             .await?;
         Ok(envelope.transaction)

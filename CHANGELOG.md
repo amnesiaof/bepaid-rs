@@ -5,6 +5,30 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.7.0] - 2026-09-17
+
+### Changed
+- Host-to-host methods (`create_payment`, `create_authorization`, `capture`, `void`, `refund`, `create_payout`, `charge_saved_card`, `create_apm_payment`, `apm_refund`, `apm_full_refund`, `confirm_apm_payment`, `apm_payout`, `apm_proof`, `checkup`) now accept an optional `request_id: Option<&str>` argument that sets the `RequestID` header to make requests idempotent (per bePaid idempotent requests docs). **Breaking:** these method signatures changed.
+- `AuthorizationRequest` now has a `verification_url` field to enable transaction verification.
+- `webhook::parse_checkout_webhook()` to parse flat payment-widget webhook payloads (e.g. token-expiry notices) into `CheckoutStatus`.
+- `CheckoutStatus` now deserializes `customer`, `finished`, `expired`, `shop`, `test`, `status`, `message`, `payment_method`.
+- `CheckoutCustomerFields.hidden` array.
+- New `create_tokenization()` method (H2H): tokenize a card via the
+  `POST /transactions/tokenizations` endpoint (3-D Secure supported). New
+  `TokenizationRequest`, `ThreeDSecureAdvanced`, `TokenizationInfo` types.
+  `CreditCardRaw` now has `skip_three_d_secure_verification` and
+  `force_three_d_secure_verification` fields. `Transaction` now deserializes
+  the `tokenization` object.
+- `PaymentRequest` and `AuthorizationRequest` now have a `duplicate_check`
+  field (set `false` to allow a repeat request within 30 seconds instead of
+  getting a `Duplicate transaction` error).
+- `Transaction` now deserializes the full v3 response format: `psp_settled_at`,
+  `parent_uid`, `reason`, `errors`, `three_d_secure_verification`,
+  `status_code` (now integer, matching the API). `CaptureResponse` gains
+  `psp_settled_at` and an integer `status_code`.
+
+## [0.6.9] - 2026-09-16
+
 ## [0.6.9] - 2026-09-16
 
 ### Added
