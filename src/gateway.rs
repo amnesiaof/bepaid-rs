@@ -7,15 +7,93 @@ use reqwest::Method;
 use crate::client::{BepaidClient, RequestEnvelope};
 use crate::error::BepaidError;
 use crate::types::{
-    AuthorizationEnvelope, AuthorizationRequest, AuthorizationResponse, CaptureEnvelope,
-    CaptureRequest, CaptureResponse, ChargeRequest, PaymentRequest, PaymentResponse,
-    PayoutEnvelope, PayoutRequest, PayoutResponse, RecipientTokenizationRequest, RefundEnvelope,
-    RefundRequest, RefundResponse, TokenizationRequest, TrackingIdStatus, Transaction,
-    TransactionEnvelope, TransactionEnvelopeFull, VoidEnvelope, VoidRequest, VoidResponse,
+    AsyncAck, AsyncStatus, AuthorizationRequest, CaptureEnvelope, CaptureRequest, CaptureResponse,
+    CardBalanceRequest, CardBalanceResponse, ChargeRequest, MasterpassDeleteCardRequest,
+    MasterpassDeleteCardResponse, MasterpassGetCardRequest, MasterpassGetCardResponse,
+    MasterpassGetCardsRequest, MasterpassGetCardsResponse, MasterpassGetSavedCardRequest,
+    MasterpassLoginRequest, MasterpassLoginResponse, PaymentRequest, PayoutEnvelope, PayoutRequest,
+    PayoutResponse, RecipientTokenizationRequest, RefundEnvelope, RefundRequest, RefundResponse,
+    TokenizationRequest, TrackingIdStatus, Transaction, TransactionEnvelopeFull, VoidEnvelope,
+    VoidRequest, VoidResponse,
 };
 
 impl BepaidClient {
-    /// Create a payment. Returns tracking_id + uid.
+    /// Log in to Masterpass (`POST /masterpass/login`, API v3).
+    pub async fn masterpass_login(
+        &self,
+        req: MasterpassLoginRequest,
+    ) -> Result<MasterpassLoginResponse, BepaidError> {
+        self.request_json_with_id(
+            Method::POST,
+            &self.gateway("/masterpass/login"),
+            Some(&req),
+            Some("3"),
+            None,
+        )
+        .await
+    }
+
+    /// List Masterpass cards (`POST /masterpass/get_cards`, API v3).
+    pub async fn masterpass_get_cards(
+        &self,
+        req: MasterpassGetCardsRequest,
+    ) -> Result<MasterpassGetCardsResponse, BepaidError> {
+        self.request_json_with_id(
+            Method::POST,
+            &self.gateway("/masterpass/get_cards"),
+            Some(&req),
+            Some("3"),
+            None,
+        )
+        .await
+    }
+
+    /// Retrieve a Masterpass card (`POST /masterpass/get_card`, API v3).
+    pub async fn masterpass_get_card(
+        &self,
+        req: MasterpassGetCardRequest,
+    ) -> Result<MasterpassGetCardResponse, BepaidError> {
+        self.request_json_with_id(
+            Method::POST,
+            &self.gateway("/masterpass/get_card"),
+            Some(&req),
+            Some("3"),
+            None,
+        )
+        .await
+    }
+
+    /// Retrieve a saved Masterpass card (`POST /masterpass/get_saved_card`, API v3).
+    pub async fn masterpass_get_saved_card(
+        &self,
+        req: MasterpassGetSavedCardRequest,
+    ) -> Result<MasterpassGetCardResponse, BepaidError> {
+        self.request_json_with_id(
+            Method::POST,
+            &self.gateway("/masterpass/get_saved_card"),
+            Some(&req),
+            Some("3"),
+            None,
+        )
+        .await
+    }
+
+    /// Delete a Masterpass card (`POST /masterpass/delete_card`, API v3).
+    pub async fn masterpass_delete_card(
+        &self,
+        req: MasterpassDeleteCardRequest,
+    ) -> Result<MasterpassDeleteCardResponse, BepaidError> {
+        self.request_json_with_id(
+            Method::POST,
+            &self.gateway("/masterpass/delete_card"),
+            Some(&req),
+            Some("3"),
+            None,
+        )
+        .await
+    }
+
+    /// Create a payment and return the full transaction.
     ///
     /// # Example
     ///
@@ -37,13 +115,15 @@ impl BepaidClient {
     ///         verification_url: None,
     ///         return_url: None,
     ///         duplicate_check: None,
+    ///         expired_at: None,
+    ///         dynamic_billing_descriptor: None,
     ///         billing_address: None,
     ///         credit_card: Some(CreditCardRaw {
-    ///             number: "4242424242424242".to_owned(),
-    ///             verification_value: "123".to_owned(),
-    ///             holder: "John Smith".to_owned(),
-    ///             exp_month: 10,
-    ///             exp_year: 2030,
+    ///             number: Some("4242424242424242".to_owned()),
+    ///             verification_value: Some("123".to_owned()),
+    ///             holder: Some("John Smith".to_owned()),
+    ///             exp_month: Some(10),
+    ///             exp_year: Some(2030),
     ///             save_card: None,
     ///             token: None,
     ///             skip_three_d_secure_verification: None,
@@ -64,8 +144,8 @@ impl BepaidClient {
         &self,
         req: PaymentRequest,
         request_id: Option<&str>,
-    ) -> Result<PaymentResponse, BepaidError> {
-        let envelope: TransactionEnvelope = self
+    ) -> Result<Transaction, BepaidError> {
+        let envelope: TransactionEnvelopeFull = self
             .request_json_with_id(
                 Method::POST,
                 &self.gateway("/transactions/payments"),
@@ -96,12 +176,17 @@ impl BepaidClient {
     ///         tracking_id: "order-124".to_owned(),
     ///         test: Some(true),
     ///         duplicate_check: None,
+    ///         language: None,
+    ///         notification_url: None,
+    ///         return_url: None,
+    ///         expired_at: None,
+    ///         dynamic_billing_descriptor: None,
     ///         credit_card: Some(CreditCardRaw {
-    ///             number: "4242424242424242".to_owned(),
-    ///             verification_value: "123".to_owned(),
-    ///             holder: "John Smith".to_owned(),
-    ///             exp_month: 10,
-    ///             exp_year: 2030,
+    ///             number: Some("4242424242424242".to_owned()),
+    ///             verification_value: Some("123".to_owned()),
+    ///             holder: Some("John Smith".to_owned()),
+    ///             exp_month: Some(10),
+    ///             exp_year: Some(2030),
     ///             save_card: None,
     ///             token: None,
     ///             skip_three_d_secure_verification: None,
@@ -109,6 +194,7 @@ impl BepaidClient {
     ///         }),
     ///         customer: None,
     ///         billing_address: None,
+    ///         additional_data: None,
     ///         verification_url: None,
     ///         custom_fields: None,
     ///     };
@@ -124,8 +210,8 @@ impl BepaidClient {
         &self,
         req: AuthorizationRequest,
         request_id: Option<&str>,
-    ) -> Result<AuthorizationResponse, BepaidError> {
-        let envelope: AuthorizationEnvelope = self
+    ) -> Result<Transaction, BepaidError> {
+        let envelope: TransactionEnvelopeFull = self
             .request_json_with_id(
                 Method::POST,
                 &self.gateway("/transactions/authorizations"),
@@ -345,11 +431,11 @@ impl BepaidClient {
     ///         test: Some(true),
     ///         billing_address: None,
     ///         credit_card: Some(CreditCardRaw {
-    ///             number: "4242424242424242".to_owned(),
-    ///             verification_value: "123".to_owned(),
-    ///             holder: "John Smith".to_owned(),
-    ///             exp_month: 10,
-    ///             exp_year: 2030,
+    ///             number: Some("4242424242424242".to_owned()),
+    ///             verification_value: Some("123".to_owned()),
+    ///             holder: Some("John Smith".to_owned()),
+    ///             exp_month: Some(10),
+    ///             exp_year: Some(2030),
     ///             save_card: None,
     ///             token: None,
     ///             skip_three_d_secure_verification: None,
@@ -381,6 +467,69 @@ impl BepaidClient {
                 request_id,
             )
             .await?;
+        Ok(envelope.transaction)
+    }
+
+    /// Query the balance of a card gateway account (`POST /balance`, API v2).
+    pub async fn get_card_balance(
+        &self,
+        req: CardBalanceRequest,
+    ) -> Result<CardBalanceResponse, BepaidError> {
+        self.request_json(
+            Method::POST,
+            &self.gateway("/balance"),
+            Some(&RequestEnvelope { request: req }),
+            Some("2"),
+        )
+        .await
+    }
+
+    /// Submit a payment for asynchronous processing
+    /// (`POST /async/transactions/payments`, API v3).
+    pub async fn create_payment_async(
+        &self,
+        req: PaymentRequest,
+        request_id: Option<&str>,
+    ) -> Result<AsyncAck, BepaidError> {
+        self.request_json_with_id(
+            Method::POST,
+            &self.gateway("/async/transactions/payments"),
+            Some(&RequestEnvelope { request: req }),
+            Some("3"),
+            request_id,
+        )
+        .await
+    }
+
+    /// Submit an authorization for asynchronous processing
+    /// (`POST /async/transactions/authorizations`, API v3).
+    pub async fn create_authorization_async(
+        &self,
+        req: AuthorizationRequest,
+        request_id: Option<&str>,
+    ) -> Result<AsyncAck, BepaidError> {
+        self.request_json_with_id(
+            Method::POST,
+            &self.gateway("/async/transactions/authorizations"),
+            Some(&RequestEnvelope { request: req }),
+            Some("3"),
+            request_id,
+        )
+        .await
+    }
+
+    /// Poll the status of an async processing request.
+    ///
+    /// Takes the absolute `status_url` returned in [`AsyncAck`].
+    pub async fn get_async_status(&self, url: &str) -> Result<AsyncStatus, BepaidError> {
+        self.request_async_json(url).await
+    }
+
+    /// Fetch the final transaction of a completed async request.
+    ///
+    /// Takes the absolute `response_url` returned in [`AsyncStatus`].
+    pub async fn get_async_result(&self, url: &str) -> Result<Transaction, BepaidError> {
+        let envelope: TransactionEnvelopeFull = self.request_async_json(url).await?;
         Ok(envelope.transaction)
     }
 

@@ -3,8 +3,10 @@ use std::fmt;
 /// Error type returned by every client operation.
 #[derive(Debug)]
 pub enum BepaidError {
+    #[allow(missing_docs)]
+    InvalidRequest(String),
     /// The API responded with a non-2xx status.
-    Api(ApiError),
+    Api(Box<ApiError>),
     /// Transport-level failure (connection, timeout, TLS, …).
     Http(reqwest::Error),
     /// Failed to parse a request or response body as JSON.
@@ -26,11 +28,18 @@ pub struct ApiError {
     pub message: String,
     /// Per-field validation errors, when the API provides them.
     pub errors: Option<serde_json::Value>,
+    #[allow(missing_docs)]
+    pub error_code: Option<String>,
+    /// Transaction result code.
+    pub code: Option<String>,
+    /// Customer-facing error message.
+    pub friendly_message: Option<String>,
 }
 
 impl fmt::Display for BepaidError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
+            Self::InvalidRequest(message) => write!(f, "Invalid request: {message}"),
             Self::Api(e) => write!(f, "API error {}: {}", e.status, e.message),
             Self::Http(e) => write!(f, "HTTP error: {e}"),
             Self::Json(e) => write!(f, "JSON error: {e}"),

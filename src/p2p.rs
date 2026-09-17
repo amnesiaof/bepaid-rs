@@ -6,7 +6,10 @@ use reqwest::Method;
 
 use crate::client::{BepaidClient, RequestEnvelope};
 use crate::error::BepaidError;
-use crate::types::{P2pEnvelope, P2pRequest, P2pResponse, VerifyP2pResponse};
+use crate::types::{
+    P2pEnvelope, P2pRequest, P2pResponse, VerifyP2pResponse, VisaAliasPhoneRequest,
+    VisaAliasPhoneResponse,
+};
 
 impl BepaidClient {
     /// Transfer money between two cards.
@@ -43,6 +46,16 @@ impl BepaidClient {
     ///         test: Some(true),
     ///         tracking_id: Some("order-125".to_owned()),
     ///         additional_data: None,
+    ///         description: None,
+    ///         expired_at: None,
+    ///         duplicate_check: None,
+    ///         language: None,
+    ///         notification_url: None,
+    ///         return_url: None,
+    ///         customer: None,
+    ///         sender_billing_address: None,
+    ///         recipient_billing_address: None,
+    ///         billing_address: None,
     ///     };
     ///     let p2p = client.create_p2p(request).await?;
     ///     println!("uid: {}", p2p.uid.unwrap_or_default());
@@ -69,6 +82,20 @@ impl BepaidClient {
             &self.gateway("/p2p-restrictions"),
             Some(&RequestEnvelope { request: req }),
             None,
+        )
+        .await
+    }
+
+    #[allow(missing_docs)]
+    pub async fn verify_visa_alias(
+        &self,
+        req: VisaAliasPhoneRequest,
+    ) -> Result<VisaAliasPhoneResponse, BepaidError> {
+        self.request_json(
+            Method::POST,
+            &self.gateway("/services/visa-alias/verify-phone"),
+            Some(&req),
+            Some("3"),
         )
         .await
     }

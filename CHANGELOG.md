@@ -7,6 +7,102 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.8.0] - 2026-09-17
+
+### Added
+- Card gateway account balance query: `get_card_balance` (`POST /balance`,
+  X-API-Version 2) with new `CardBalanceRequest`, `CardBalanceResponse` and
+  `CardBalanceResult` types (camelCase `gatewayId`/`bankInfo` decoded).
+- Async processing mode: `create_payment_async`, `create_authorization_async`
+  (`POST /async/transactions/payments|authorizations`, API v3), `get_async_status`
+  and `get_async_result` (absolute `status_url`/`response_url` polling), with new
+  `AsyncAck` and `AsyncStatus` types.
+- `ApiError.code` and `ApiError.friendly_message` extracted from error bodies
+  alongside the existing `error_code`/`message`.
+- Request fields: `PaymentRequest.expired_at`/`dynamic_billing_descriptor`,
+  `AuthorizationRequest.language`/`notification_url`/`return_url`/`expired_at`/
+  `dynamic_billing_descriptor`, `CheckoutRequest.dynamic_billing_descriptor`/
+  `travel`, `CheckoutSettings.style`/`widget_version`/`require`/`customer`,
+  `ApmPaymentRequest.iframe`/`verification_url`, `Customer.id`/`id_number`,
+  and eleven update fields on `ProductUpdateRequest` (name, description,
+  currency, visible_fields, test, immortal, expired_at, return_url, shop_id,
+  language, transaction_type). **Breaking:** existing literals must supply the
+  new fields (`None` when unused).
+- `CheckoutResponse.extra` retains additional echo fields from checkout
+  creation; `CheckoutStatus` decodes `merchant`, `version` (int or string),
+  `card_info`, `job_id`, `attempts`, `iframe`, `dynamic_billing_descriptor`
+  and `travel`.
+- `check_mts_service_v2(phone, test)` uses the MTS Money API v2 route; the
+  existing widget-v3 method is unchanged. `CheckServiceResponse.error_code`
+  preserves string or numeric provider codes.
+- `test_qiwi_terminal_payment(amount, currency, account)` sends a wrapped test
+  request and returns raw JSON, or `{}` for an empty successful response.
+- `Customer` gains optional `gender`, `street` and `state` fields. **Breaking:**
+  existing literals must supply these fields (`None` when unused).
+- `create_erip_payment` uses `/beyag/payments`; generic `create_apm_payment`
+  keeps `/beyag/transactions/payments`. `get_apm_refund` queries `/beyag/refunds/{uid}`.
+- `get_erip_pay_list` sends a flat `EripPayListRequest` and returns raw JSON
+  arrays or objects. Komplat authorization reuses `AdditionalData.extra`.
+- ERIP payment/refund response metadata and raw ERIP data; webhook ERIP/refund
+  fields and localized `extra` retain External method-specific payloads.
+- Checkout `PaymentMethod.extra` and `CheckoutAdditionalData.extra` accept
+  method-specific objects alongside existing typed fields. `Customer` gains
+  middle name, country, city, zip and address; `BillingAddress` gains middle name.
+  **Breaking:** affected struct literals must supply the new optional fields
+  (`None` when unused).
+- `verify_visa_alias` sends a flat, authenticated API v3 request to
+  `/services/visa-alias/verify-phone`; typed responses reuse root-level
+  `CreditCardInfo` and decode camelCase `service_info` fields.
+- P2P request metadata, customer and billing addresses; additional-data referer,
+  receipt lines and contracts. **Breaking:** `P2pRequest` and `P2pAdditionalData`
+  literals must supply the new optional fields (`None` when unused).
+- Masterpass service support: `masterpass_login`, `masterpass_get_cards`,
+  `masterpass_get_card`, `masterpass_get_saved_card`, and `masterpass_delete_card`
+  via `POST /masterpass/*`, with new request/response types and
+  `AdditionalData.masterpass` for save-card/payments. **Breaking:** existing
+  `AdditionalData` struct literals must supply `masterpass` (`None` when unused).
+
+### Changed
+- **Breaking:** `create_payment` and `create_authorization` return the full
+  `Transaction`; removed unused `PaymentResponse` and `AuthorizationResponse`.
+- **Breaking:** `BepaidError::Api` now holds `Box<ApiError>` to keep the error
+  variant small after adding fields. Field access through the box is unchanged.
+
+### Fixed
+- Async polling validates the configured gateway origin (scheme, host and effective
+  port) and rejects malformed URLs, foreign origins and userinfo before HTTP.
+  Polling redirects are disabled without changing other endpoints' redirect behavior.
+- Universal confirmation accepts the documented empty `{"request": {}}` body
+  as well as skip-only requests, preserving BelVEB and SberPay modes.
+- README examples include all required struct fields and current method arguments.
+- `create_checkout` now sends `X-API-Version: 2` as the Checkout API requires.
+- Universal `confirm_apm_payment` reference confirmations send a wrapped
+  `{"request": {...}}` body, and `skip_duplicate_check` alone (without
+  `transaction_reference`) is accepted; confirm_type and phone modes are
+  unchanged.
+- `create_apm_payment` sends `request.method`; `create_erip_payment` continues
+  sending `request.payment_method`, preserving the public request field.
+- `ApmPaymentResponse.extra` and `Transaction.extra` retain method-specific
+  response JSON, including QR/bank data, string crypto amounts and object/string
+  forms. **Breaking:** literals must supply the new `extra` field.
+- `confirm_apm_payment` supports wrapped BelVEB confirm/cancel requests with a
+  `transaction` response and flat SberPay phone requests with a `response` envelope.
+  Reference confirmations use a wrapped body and retain the response envelope;
+  mixed modes, invalid confirmation types and misplaced duplicate flags
+  are rejected locally. **Breaking:** `ApmConfirmRequest.transaction_reference`
+  is optional; literals must also supply `phone` (`None` for legacy callers).
+- `apm_full_refund` rejects missing amounts locally with `BepaidError::InvalidRequest`
+  before sending a request; its `Option<i64>` signature and valid callers are preserved.
+  Full ERIP refunds require the explicit full amount, not `None`.
+- Flat API error bodies (e.g. Visa Alias, Verify P2P) preserve `error_code`,
+  `message` and `errors`; legacy `response`/`error` shapes unchanged. New
+  `ApiError.error_code`.
+- `P2pResponse` and `VerifyP2pResponse` now decode updated-at/paid-at, language,
+  payment-method type, message, status code, id, addresses, raw customer and
+  additional data, and validation `errors`.
+- `CreditCardRaw` supports token-only payments, omitting absent PAN, CVC, holder and expiry fields while preserving raw-card serialization. **Breaking:** `number`, `verification_value`, `holder`, `exp_month` and `exp_year` now use `Option`; wrap raw-card values in `Some`.
+- `AuthorizationRequest.additional_data` accepts `Option<AdditionalData>`, including `contract`. **Breaking:** existing struct literals must supply `additional_data` (`None` when unused).
+
 ## [0.7.0] - 2026-09-17
 
 ### Added
@@ -201,7 +297,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Direct (APM) API: `create_apm_payment`, `apm_refund`, `apm_full_refund`.
 - Webhooks: `verify_webhook_auth`, `parse_webhook`.
 
-[Unreleased]: https://github.com/amnesiaof/bepaid-rs/compare/v0.7.0...HEAD
+[Unreleased]: https://github.com/amnesiaof/bepaid-rs/compare/v0.8.0...HEAD
+[0.8.0]: https://github.com/amnesiaof/bepaid-rs/compare/v0.7.0...v0.8.0
 [0.7.0]: https://github.com/amnesiaof/bepaid-rs/compare/v0.6.9...v0.7.0
 [0.6.9]: https://github.com/amnesiaof/bepaid-rs/compare/v0.6.8...v0.6.9
 [0.6.8]: https://github.com/amnesiaof/bepaid-rs/compare/v0.6.7...v0.6.8

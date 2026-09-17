@@ -12,7 +12,7 @@ and the Merchant API (reports, channel balances).
 
 ```toml
 [dependencies]
-bepaid = "0.7"
+bepaid = "0.8"
 ```
 
 Also needs a Tokio runtime (the client is async):
@@ -39,10 +39,15 @@ let payment = client.create_payment(PaymentRequest {
     test: true,
     description: "Order #123".into(),
     tracking_id: "order-123".into(),
+    expired_at: None,
+    dynamic_billing_descriptor: None,
     language: None,
     notification_url: None,
+    verification_url: None,
+    return_url: None,
     duplicate_check: None,
     billing_address: Some(BillingAddress {
+        middle_name: None,
         first_name: Some("John".into()),
         last_name: Some("Smith".into()),
         country: Some("BY".into()),
@@ -53,25 +58,41 @@ let payment = client.create_payment(PaymentRequest {
         phone: Some("+375291234567".into()),
     }),
     credit_card: Some(CreditCardRaw {
-        number: "4242424242424242".into(),
-        verification_value: "123".into(),
-        holder: "John Smith".into(),
-        exp_month: 10,
-        exp_year: 2030,
+        number: Some("4242424242424242".into()),
+        verification_value: Some("123".into()),
+        holder: Some("John Smith".into()),
+        exp_month: Some(10),
+        exp_year: Some(2030),
         save_card: Some(true),
         token: None,
         skip_three_d_secure_verification: None,
         force_three_d_secure_verification: None,
     }),
     customer: Some(Customer {
+        id: None,
+        id_number: None,
+        gender: None,
+        street: None,
+        state: None,
+        middle_name: None,
+        country: None,
+        city: None,
+        zip: None,
+        address: None,
         first_name: Some("John".into()),
         last_name: Some("Smith".into()),
         ip: None,
         email: Some("john@example.com".into()),
         device_id: None,
         birth_date: None,
+        phone: None,
+        external_id: None,
+        taxpayer_id: None,
     }),
     additional_data: None,
+    encrypted_data: None,
+    fiscalization: None,
+    custom_fields: None,
 }, None)
 .await?;
 ```
@@ -87,12 +108,17 @@ let auth = client.create_authorization(AuthorizationRequest {
     tracking_id: "order-123".into(),
     test: Some(true),
     duplicate_check: None,
+    language: None,
+    notification_url: None,
+    return_url: None,
+    expired_at: None,
+    dynamic_billing_descriptor: None,
     credit_card: Some(CreditCardRaw {
-        number: "4242424242424242".into(),
-        verification_value: "123".into(),
-        holder: "John Smith".into(),
-        exp_month: 10,
-        exp_year: 2030,
+        number: Some("4242424242424242".into()),
+        verification_value: Some("123".into()),
+        holder: Some("John Smith".into()),
+        exp_month: Some(10),
+        exp_year: Some(2030),
         save_card: Some(true),
         token: None,
         skip_three_d_secure_verification: None,
@@ -100,7 +126,9 @@ let auth = client.create_authorization(AuthorizationRequest {
     }),
     customer: None,
     billing_address: None,
+    additional_data: None,
     verification_url: None,
+    custom_fields: None,
 }, None)
 .await?;
 // redirect the customer to auth.redirect_url, then poll for the result:
@@ -111,6 +139,8 @@ let tx = client.get_transaction(&auth.uid).await?;
 
 ```rust
 let checkout = client.create_checkout(&CheckoutRequest {
+    dynamic_billing_descriptor: None,
+    travel: None,
     test: Some(true),
     transaction_type: "payment".into(),
     attempts: None,
@@ -125,23 +155,56 @@ let checkout = client.create_checkout(&CheckoutRequest {
         button_next_text: None,
         auto_pay: None,
         language: None,
+        style: None,
+        widget_version: None,
+        require: None,
+        customer: None,
+        agreed: None,
+        agreement_toggle: None,
+        customer_fields: None,
+        credit_card_fields: None,
+        verification_url: None,
+        auto_return: None,
+        card_notification_url: None,
+        save_card_toggle: None,
+        another_card_toggle: None,
     }),
     payment_method: Some(PaymentMethod {
+        extra: None,
         types: Some(vec!["credit_card".into()]),
+        excluded_types: None,
+        excluded_brands: None,
     }),
     credit_card: None,
     order: CheckoutOrder {
         currency: "BYN".into(),
         amount: 700,
         description: Some("Order #123".into()),
+        tracking_id: None,
+        expired_at: None,
+        additional_data: None,
+        custom_fields: None,
     },
     customer: Some(Customer {
+        id: None,
+        id_number: None,
+        gender: None,
+        street: None,
+        state: None,
+        middle_name: None,
+        country: None,
+        city: None,
+        zip: None,
+        address: None,
         first_name: Some("John".into()),
         last_name: Some("Smith".into()),
         ip: None,
         email: Some("john@example.com".into()),
         device_id: None,
         birth_date: None,
+        phone: None,
+        external_id: None,
+        taxpayer_id: None,
     }),
 })
 .await?;
@@ -178,10 +241,13 @@ let apm = client.create_apm_payment(ApmPaymentRequest {
     test: Some(true),
     language: None,
     return_url: None,
+    iframe: None,
+    verification_url: None,
     customer: None,
     payment_method: serde_json::json!({"type": "erip", "service_no": "0000000001"}),
     additional_data: None,
-}).await?;
+    custom_fields: None,
+}, None).await?;
 ```
 
 ### Webhooks

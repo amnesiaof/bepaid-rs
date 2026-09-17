@@ -35,6 +35,8 @@
 //!         verification_url: None,
 //!         return_url: None,
 //!         duplicate_check: None,
+//!         expired_at: None,
+//!         dynamic_billing_descriptor: None,
 //!         billing_address: None,
 //!         credit_card: None,
 //!         customer: None,

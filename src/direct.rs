@@ -16,6 +16,49 @@ use crate::types::{
 };
 
 impl BepaidClient {
+    #[allow(missing_docs)]
+    pub async fn create_erip_payment(
+        &self,
+        req: ApmPaymentRequest,
+    ) -> Result<ApmPaymentResponse, BepaidError> {
+        let envelope: ApmPaymentEnvelope = self
+            .request_json(
+                Method::POST,
+                &self.api("/beyag/payments"),
+                Some(&RequestEnvelope { request: req }),
+                None,
+            )
+            .await?;
+        Ok(envelope.transaction)
+    }
+
+    #[allow(missing_docs)]
+    pub async fn get_apm_refund(&self, uid: &str) -> Result<ApmRefundResponse, BepaidError> {
+        let envelope: ApmRefundEnvelope = self
+            .request_json(
+                Method::GET,
+                &self.api(&format!("/beyag/refunds/{uid}")),
+                None::<&u8>,
+                None,
+            )
+            .await?;
+        Ok(envelope.transaction)
+    }
+
+    #[allow(missing_docs)]
+    pub async fn get_erip_pay_list(
+        &self,
+        req: crate::types::EripPayListRequest,
+    ) -> Result<serde_json::Value, BepaidError> {
+        self.request_json(
+            Method::POST,
+            &self.api("/beyag/gateways/komplat/get_pay_list"),
+            Some(&req),
+            None,
+        )
+        .await
+    }
+
     /// Pay by an alternative payment method (ERIP, Alfabank, MTS Money, ...).
     /// `payment_method` must carry the method-specific parameters (`{"type": "erip", ...}`).
     pub async fn create_apm_payment(
@@ -23,11 +66,17 @@ impl BepaidClient {
         req: ApmPaymentRequest,
         request_id: Option<&str>,
     ) -> Result<ApmPaymentResponse, BepaidError> {
+        let mut request = serde_json::to_value(req)?;
+        request["method"] = request
+            .as_object_mut()
+            .unwrap()
+            .remove("payment_method")
+            .unwrap();
         let envelope: ApmPaymentEnvelope = self
             .request_json_with_id(
                 Method::POST,
                 &self.api("/beyag/transactions/payments"),
-                Some(&RequestEnvelope { request: req }),
+                Some(&RequestEnvelope { request }),
                 None,
                 request_id,
             )
@@ -35,7 +84,7 @@ impl BepaidClient {
         Ok(envelope.transaction)
     }
 
-    /// Full or partial refund of an APM transaction (allows `amount: None` for full).
+    /// Refund an APM transaction via `/beyag/transactions/refunds`.
     pub async fn apm_refund(
         &self,
         req: ApmRefundRequest,
@@ -54,7 +103,7 @@ impl BepaidClient {
     }
 
     /// Full or partial refund of an APM transaction via the alternative
-    /// `/beyag/refunds` endpoint. `amount: None` means full refund.
+    /// `/beyag/refunds` endpoint. `amount` is required, including for a full refund.
     pub async fn apm_full_refund(
         &self,
         parent_uid: &str,
@@ -62,10 +111,13 @@ impl BepaidClient {
         amount: Option<i64>,
         request_id: Option<&str>,
     ) -> Result<ApmRefundResponse, BepaidError> {
+        let amount = amount.ok_or_else(|| {
+            BepaidError::InvalidRequest("amount is required for /beyag/refunds".into())
+        })?;
         let req = ApmRefundRequest {
             parent_uid: parent_uid.to_owned(),
             reason: reason.to_owned(),
-            amount,
+            amount: Some(amount),
             tracking_id: None,
             additional_data: None,
         };
@@ -88,16 +140,60 @@ impl BepaidClient {
         req: ApmConfirmRequest,
         request_id: Option<&str>,
     ) -> Result<ApmConfirmResponse, BepaidError> {
-        let envelope: ApmConfirmEnvelope = self
-            .request_json_with_id(
-                Method::POST,
-                &self.api(&format!("/beyag/transactions/{uid}/confirm")),
-                Some(&req),
-                None,
-                request_id,
-            )
-            .await?;
-        Ok(envelope.response)
+        if [
+            req.transaction_reference.is_some() || req.skip_duplicate_check.is_some(),
+            req.confirm_type.is_some(),
+            req.phone.is_some(),
+        ]
+        .into_iter()
+        .filter(|present| *present)
+        .count()
+            > 1
+        {
+            return Err(BepaidError::InvalidRequest(
+                "do not mix confirmation modes: transaction_reference/skip_duplicate_check, confirm_type or phone".into(),
+            ));
+        }
+        if let Some(confirm_type) = req.confirm_type.as_deref()
+            && !matches!(confirm_type, "confirm" | "cancel")
+        {
+            return Err(BepaidError::InvalidRequest(
+                "confirm_type must be confirm or cancel".into(),
+            ));
+        }
+        let url = self.api(&format!("/beyag/transactions/{uid}/confirm"));
+        if req.confirm_type.is_some() {
+            #[derive(serde::Deserialize)]
+            struct Envelope {
+                transaction: ApmConfirmResponse,
+            }
+            let envelope: Envelope = self
+                .request_json_with_id(
+                    Method::POST,
+                    &url,
+                    Some(&RequestEnvelope { request: req }),
+                    None,
+                    request_id,
+                )
+                .await?;
+            Ok(envelope.transaction)
+        } else if req.phone.is_some() {
+            let envelope: ApmConfirmEnvelope = self
+                .request_json_with_id(Method::POST, &url, Some(&req), None, request_id)
+                .await?;
+            Ok(envelope.response)
+        } else {
+            let envelope: ApmConfirmEnvelope = self
+                .request_json_with_id(
+                    Method::POST,
+                    &url,
+                    Some(&RequestEnvelope { request: req }),
+                    None,
+                    request_id,
+                )
+                .await?;
+            Ok(envelope.response)
+        }
     }
 
     /// Get the current status of an APM transaction by uid.
@@ -287,6 +383,54 @@ impl BepaidClient {
             Some("3"),
         )
         .await
+    }
+
+    #[allow(missing_docs)]
+    pub async fn check_mts_service_v2(
+        &self,
+        phone: &str,
+        test: Option<bool>,
+    ) -> Result<CheckServiceResponse, BepaidError> {
+        let mut request = serde_json::json!({"customer": {"phone": phone}});
+        if let Some(test) = test {
+            request["test"] = serde_json::json!(test);
+        }
+        self.request_json(
+            Method::POST,
+            &self.api("/beyag/gateways/mts_money/check_service"),
+            Some(&RequestEnvelope { request }),
+            Some("2"),
+        )
+        .await
+    }
+
+    #[allow(missing_docs)]
+    pub async fn test_qiwi_terminal_payment(
+        &self,
+        amount: i64,
+        currency: &str,
+        account: &str,
+    ) -> Result<serde_json::Value, BepaidError> {
+        let response = self
+            .send_request(
+                Method::POST,
+                &self.api("/beyag/testing/payment"),
+                Some(&serde_json::json!({"request": {
+                    "amount": amount,
+                    "currency": currency,
+                    "method": {"type": "qiwi_terminal", "account": account},
+                    "test": true
+                }})),
+                None,
+                None,
+            )
+            .await?;
+        let body = response.bytes().await?;
+        if body.is_empty() {
+            Ok(serde_json::json!({}))
+        } else {
+            Ok(serde_json::from_slice(&body)?)
+        }
     }
 
     /// Get ERIP payment details by the payment uid (`GET /beyag/payments/:uid`).

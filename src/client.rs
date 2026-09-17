@@ -91,6 +91,42 @@ impl BepaidClient {
         format!("{}{path}", self.merchant_url)
     }
 
+    pub(crate) async fn request_async_json<T: serde::de::DeserializeOwned>(
+        &self,
+        url: &str,
+    ) -> Result<T, BepaidError> {
+        let invalid = || {
+            BepaidError::InvalidRequest(
+                "async polling URL must use the configured gateway origin without userinfo".into(),
+            )
+        };
+        let destination = reqwest::Url::parse(url).map_err(|_| invalid())?;
+        let gateway = reqwest::Url::parse(&self.gateway_url).map_err(|_| invalid())?;
+        if !matches!(destination.scheme(), "http" | "https")
+            || destination.origin() != gateway.origin()
+            || !destination.username().is_empty()
+            || destination.password().is_some()
+            || url.split_once("://").is_none_or(|(_, rest)| {
+                rest.split(['/', '?', '#'])
+                    .next()
+                    .is_some_and(|authority| authority.contains('@'))
+            })
+        {
+            return Err(invalid());
+        }
+        let response = Client::builder()
+            .redirect(reqwest::redirect::Policy::none())
+            .build()?
+            .get(destination)
+            .header("Authorization", &self.auth)
+            .header("Content-Type", "application/json")
+            .header("Accept", "application/json")
+            .header("X-API-Version", "3")
+            .send()
+            .await?;
+        Ok(Self::check_response(response).await?.json().await?)
+    }
+
     pub(crate) async fn request_json<T: serde::de::DeserializeOwned>(
         &self,
         method: reqwest::Method,
@@ -133,7 +169,7 @@ impl BepaidClient {
     }
 
     /// Sets the `RequestID` header when `request_id` is provided.
-    async fn send_request(
+    pub(crate) async fn send_request(
         &self,
         method: reqwest::Method,
         url: &str,
@@ -156,35 +192,51 @@ impl BepaidClient {
         if let Some(b) = body {
             builder = builder.json(b);
         }
-        let resp = builder.send().await?;
+        Self::check_response(builder.send().await?).await
+    }
+
+    async fn check_response(resp: reqwest::Response) -> Result<reqwest::Response, BepaidError> {
         let status = resp.status();
         if status.is_success() {
             Ok(resp)
         } else {
             let text = resp.text().await.unwrap_or_default();
-            let message = serde_json::from_str::<serde_json::Value>(&text)
-                .ok()
-                .and_then(|v| {
-                    v.get("response")
-                        .or_else(|| v.get("error"))
-                        .and_then(|e| e.get("message"))
-                        .and_then(|m| m.as_str())
+            let body = serde_json::from_str::<serde_json::Value>(&text).ok();
+            let details = body.as_ref().map(|v| {
+                v.get("response")
+                    .filter(|e| e.is_object())
+                    .or_else(|| v.get("error").filter(|e| e.is_object()))
+                    .unwrap_or(v)
+            });
+            let field = |name: &str| {
+                details
+                    .and_then(|v| v.get(name))
+                    .or_else(|| body.as_ref().and_then(|v| v.get(name)))
+                    .filter(|v| !v.is_null())
+            };
+            let message = field("message")
+                .map(|m| {
+                    m.as_str()
                         .map(String::from)
+                        .unwrap_or_else(|| m.to_string())
                 })
-                .unwrap_or(text.clone());
-            let errors = serde_json::from_str::<serde_json::Value>(&text)
-                .ok()
-                .and_then(|v| {
-                    v.get("response")
-                        .or_else(|| v.get("error"))
-                        .and_then(|e| e.get("errors"))
-                        .cloned()
-                });
-            Err(BepaidError::Api(ApiError {
+                .unwrap_or(text);
+            let errors = field("errors")
+                .or_else(|| field("message").filter(|m| m.is_object() || m.is_array()))
+                .cloned();
+            let error_code = field("error_code")
+                .and_then(|v| v.as_str())
+                .map(String::from);
+            Err(BepaidError::Api(Box::new(ApiError {
                 status: status.as_u16(),
                 message,
                 errors,
-            }))
+                error_code,
+                code: field("code").and_then(|v| v.as_str()).map(String::from),
+                friendly_message: field("friendly_message")
+                    .and_then(|v| v.as_str())
+                    .map(String::from),
+            })))
         }
     }
 }

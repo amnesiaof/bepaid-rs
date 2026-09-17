@@ -35,7 +35,7 @@ impl BepaidClient {
                 Method::POST,
                 &self.checkout("/ctp/api/checkouts"),
                 Some(&CheckoutEnvelopeReq { checkout: req }),
-                None,
+                Some("2"),
             )
             .await?;
         Ok(envelope.checkout)
@@ -83,11 +83,13 @@ impl BepaidClient {
     ///             tracking_id: None,
     ///             expired_at: None,
     ///             additional_data: Some(CheckoutAdditionalData {
-    ///                 contract: Some(vec!["recurring".to_owned()]),
+    ///                 contract: Some(vec!["recurring".to_owned()]), extra: None,
     ///             }),
     ///             custom_fields: None,
     ///         },
     ///         customer: None,
+    ///         dynamic_billing_descriptor: None,
+    ///         travel: None,
     ///     };
     ///     let token = client.create_payment_token(&request).await?;
     ///     println!("redirect: {}", token.redirect_url.unwrap_or_default());
