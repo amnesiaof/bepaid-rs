@@ -5,6 +5,21 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.10.0] - 2026-09-21
+
+### Added
+- Provider card update: `update_token(token, UpdateTokenRequest { holder, exp_month, exp_year })` posting to `POST /credit_cards/{token}` (X-API-Version 3), returning the flat `TokenResponse`.
+- Client-side encryption: `EncryptedCreditCard` on `PaymentRequest`, `AuthorizationRequest` and `TokenizationRequest`, plus `EncryptedRecipientCreditCard` on `RecipientTokenizationRequest`.
+- Card-art notifications: `CreditCardRaw.notification_url`, `CreditCardInfo.image`, the `CardNotification` alias, and `webhook::parse_card_notification`.
+- Antifraud: `three_d_secure` (`ThreeDSecureAdvanced::advanced`) on `PaymentRequest`/`AuthorizationRequest`; `ThreeDSecureVerification` now decodes `acs_url`, `pa_req`, `md`, `method_process_url` and `ds_transaction_id`; `SmartRoutingVerification` now keeps the nested `data` object.
+- `Transaction.conversion` typed as `Conversion` (converted_amount, converted_currency, exchange_rate, exchange_rate_ids, exchange_rate_date).
+- Typed travel: `Travel`/`TravelAirline`/`TravelAirlineLeg`/`TravelPassenger` on `PaymentRequest`, `AuthorizationRequest`, `ChargeRequest`, `TokenizationRequest` and `CheckoutRequest`.
+- `dynamic_billing_descriptor` on `ProductCreateRequest` and `ProductUpdateRequest`.
+- `ChargeAdditionalData` now preserves unknown keys (e.g. `kyc_answers`, `customer_id_data`).
+
+### Changed
+- **Breaking:** new struct fields on `PaymentRequest`, `AuthorizationRequest`, `ChargeRequest`, `CreditCardRaw`, `CreditCardInfo`, `ProductCreateRequest`, `ProductUpdateRequest` and `ChargeAdditionalData` — existing literals must supply them (`None` when unused). `TokenizationRequest.travel` and `CheckoutRequest.travel` are now `Option<Travel>` (were `serde_json::Value`), and `RecipientTokenizationRequest.recipient_credit_card` is now `Option<PayoutCreditCard>`.
+
 ## [0.9.0] - 2026-09-21
 
 ### Added
@@ -321,7 +336,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Direct (APM) API: `create_apm_payment`, `apm_refund`, `apm_full_refund`.
 - Webhooks: `verify_webhook_auth`, `parse_webhook`.
 
-[Unreleased]: https://github.com/amnesiaof/bepaid-rs/compare/v0.9.0...HEAD
+[Unreleased]: https://github.com/amnesiaof/bepaid-rs/compare/v0.10.0...HEAD
+[0.10.0]: https://github.com/amnesiaof/bepaid-rs/compare/v0.9.0...v0.10.0
 [0.9.0]: https://github.com/amnesiaof/bepaid-rs/compare/v0.8.0...v0.9.0
 [0.8.0]: https://github.com/amnesiaof/bepaid-rs/compare/v0.7.0...v0.8.0
 [0.7.0]: https://github.com/amnesiaof/bepaid-rs/compare/v0.6.9...v0.7.0

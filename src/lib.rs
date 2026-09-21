@@ -44,6 +44,9 @@
 //!         encrypted_data: None,
 //!         fiscalization: None,
 //!         custom_fields: None,
+//!         encrypted_credit_card: None,
+//!         three_d_secure: None,
+//!         travel: None,
 //!     };
 //!     let payment = client.create_payment(request, None).await?;
 //!     println!("uid: {}", payment.uid);

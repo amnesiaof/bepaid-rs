@@ -160,6 +160,9 @@ pub struct CreditCardRaw {
     /// Force 3-D Secure verification for the card.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub force_three_d_secure_verification: Option<bool>,
+    /// URL bePaid POSTs a card-notification (art) webhook to. Enables card art.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub notification_url: Option<String>,
 }
 
 /// Credit card in API responses (masked, with brand info).
@@ -207,6 +210,52 @@ pub struct CreditCardInfo {
     /// Card token for repeat payments.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub token: Option<String>,
+    /// Card art image URL (card-notification webhook).
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub image: Option<String>,
+}
+
+/// Card-notification webhook payload. Enabled via `credit_card.notification_url`
+/// (payments/authorizations/tokenizations) or `settings.card_notification_url`
+/// (widget). A flat object — not wrapped in a `transaction` envelope.
+pub type CardNotification = CreditCardInfo;
+
+/// Client-side-encrypted card data (`encrypted_credit_card`). Every value is a
+/// `$begatewaycsejs_1_0_0$<base64>` ciphertext string.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct EncryptedCreditCard {
+    /// Encrypted card number.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub number: Option<String>,
+    /// Encrypted cardholder name.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub holder: Option<String>,
+    /// Encrypted expiration month.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub exp_month: Option<String>,
+    /// Encrypted expiration year.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub exp_year: Option<String>,
+    /// Encrypted CVV/CVC.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub verification_value: Option<String>,
+}
+
+/// Client-side-encrypted recipient card data (`encrypted_recipient_credit_card`).
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct EncryptedRecipientCreditCard {
+    /// Encrypted card number.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub number: Option<String>,
+    /// Encrypted cardholder name.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub holder: Option<String>,
+    /// Encrypted expiration month.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub exp_month: Option<String>,
+    /// Encrypted expiration year.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub exp_year: Option<String>,
 }
 
 // ── additional data ───────────────────────────────────────────────────────────
@@ -386,6 +435,21 @@ pub struct ThreeDSecureVerification {
     /// 3DS challenge request.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub creq: Option<String>,
+    /// ACS (issuer) URL the customer is redirected to.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub acs_url: Option<String>,
+    /// 3-D Secure 1.0 request payload (advanced flow).
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub pa_req: Option<String>,
+    /// 3-D Secure 1.0 merchant data (advanced flow).
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub md: Option<String>,
+    /// 3-D Secure 2.0 method URL (invisible iframe flow).
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub method_process_url: Option<String>,
+    /// Directory-server transaction id.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub ds_transaction_id: Option<String>,
 }
 
 /// Result of the smart-routing verification.
@@ -394,6 +458,10 @@ pub struct SmartRoutingVerification {
     /// Status of the check.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub status: Option<String>,
+    /// Detailed verification payload (`object_name`, `object_flows`,
+    /// `action_rules`, `matched_actions`, `wb_lists`, ...).
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub data: Option<serde_json::Value>,
 }
 
 /// AVS / CVC verification results.
@@ -607,6 +675,15 @@ pub struct PaymentRequest {
     /// Up to 3 custom fields.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub custom_fields: Option<CustomFields>,
+    /// Client-side-encrypted card data — mutually exclusive with `credit_card`.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub encrypted_credit_card: Option<EncryptedCreditCard>,
+    /// 3-D Secure advanced-control flow settings.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub three_d_secure: Option<ThreeDSecureAdvanced>,
+    /// Travel industry data (flights).
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub travel: Option<Travel>,
 }
 
 // ── gateway: authorization ────────────────────────────────────────────────────
@@ -665,6 +742,15 @@ pub struct AuthorizationRequest {
     /// Up to 3 custom fields.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub custom_fields: Option<CustomFields>,
+    /// Client-side-encrypted card data — mutually exclusive with `credit_card`.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub encrypted_credit_card: Option<EncryptedCreditCard>,
+    /// 3-D Secure advanced-control flow settings.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub three_d_secure: Option<ThreeDSecureAdvanced>,
+    /// Travel industry data (flights).
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub travel: Option<Travel>,
 }
 
 // ── gateway: transaction status ───────────────────────────────────────────────
@@ -766,6 +852,23 @@ pub struct Transaction {
     pub tokenization: Option<TokenizationInfo>,
     /// Fiscalization result (present on fiscalized transactions).
     pub fiscalization: Option<FiscalizationInfo>,
+    /// Currency-conversion result (present on converted transactions).
+    pub conversion: Option<Conversion>,
+}
+
+/// Currency-conversion result returned in a transaction.
+#[derive(Debug, Clone, Deserialize)]
+pub struct Conversion {
+    /// Converted amount in minor units.
+    pub converted_amount: Option<i64>,
+    /// Target ISO 4217 currency code.
+    pub converted_currency: Option<String>,
+    /// Exchange rates keyed by `<BASE>_TO_<QUOTE>`.
+    pub exchange_rate: Option<std::collections::HashMap<String, f64>>,
+    /// Applied exchange-rate ids.
+    pub exchange_rate_ids: Option<Vec<String>>,
+    /// Exchange-rate date (ISO 8601).
+    pub exchange_rate_date: Option<String>,
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -999,6 +1102,21 @@ pub struct TokenResponse {
     pub exp_year: Option<i64>,
 }
 
+/// Update a tokenized card's data (`POST /credit_cards/{token}`). Expiration is
+/// expected as zero-padded strings, as in [`CreateTokenRequest`].
+#[derive(Debug, Clone, Serialize)]
+pub struct UpdateTokenRequest {
+    /// Cardholder name.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub holder: Option<String>,
+    /// Expiration month, e.g. `"05"`.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub exp_month: Option<String>,
+    /// Expiration year, e.g. `"2028"`.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub exp_year: Option<String>,
+}
+
 /// Result of a card tokenization transaction.
 #[derive(Debug, Clone, Deserialize)]
 pub struct TokenizationInfo {
@@ -1016,6 +1134,95 @@ pub struct ThreeDSecureAdvanced {
     /// Enable the advanced 3-D Secure flow.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub advanced: Option<bool>,
+}
+
+/// Travel industry data (`travel`).
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct Travel {
+    /// Airline data.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub airline: Option<TravelAirline>,
+}
+
+/// Airline booking data inside `travel.airline`.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct TravelAirline {
+    /// IATA agency code.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub agency_code: Option<String>,
+    /// Agency name.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub agency_name: Option<String>,
+    /// Ticket number (max 14).
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub ticket_number: Option<String>,
+    /// Booking number.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub booking_number: Option<String>,
+    /// Restricted ticket indicator (`"0"` or `"1"`).
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub restricted_ticket_indicator: Option<String>,
+    /// Flight legs.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub legs: Option<Vec<TravelAirlineLeg>>,
+    /// Passengers.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub passengers: Option<Vec<TravelPassenger>>,
+}
+
+/// A single flight leg inside `travel.airline.legs`.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct TravelAirlineLeg {
+    /// Airline code.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub airline_code: Option<String>,
+    /// Stop-over code (`"O"`, `"X"` or `""`).
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub stop_over_code: Option<String>,
+    /// Flight number.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub flight_number: Option<String>,
+    /// Departure date-time (naive ISO 8601).
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub departure_date_time: Option<String>,
+    /// Arrival date-time (naive ISO 8601).
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub arrival_date_time: Option<String>,
+    /// Originating country code.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub originating_country: Option<String>,
+    /// Originating city.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub originating_city: Option<String>,
+    /// Originating airport code.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub originating_airport_code: Option<String>,
+    /// Destination country code.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub destination_country: Option<String>,
+    /// Destination city.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub destination_city: Option<String>,
+    /// Destination airport code.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub destination_airport_code: Option<String>,
+    /// Coupon number.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub coupon: Option<String>,
+    /// Ticket class.
+    #[serde(rename = "class", skip_serializing_if = "Option::is_none")]
+    pub travel_class: Option<String>,
+}
+
+/// A passenger inside `travel.airline.passengers`.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct TravelPassenger {
+    /// Passenger first name.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub first_name: Option<String>,
+    /// Passenger last name.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub last_name: Option<String>,
 }
 
 /// Card tokenization (3-D Secure) request.
@@ -1062,7 +1269,7 @@ pub struct TokenizationRequest {
     pub three_d_secure: Option<ThreeDSecureAdvanced>,
     /// Travel data.
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub travel: Option<serde_json::Value>,
+    pub travel: Option<Travel>,
     /// Customer metadata.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub customer: Option<Customer>,
@@ -1107,7 +1314,7 @@ pub struct CheckoutRequest {
     pub dynamic_billing_descriptor: Option<String>,
     /// Travel industry data (flights, car rentals).
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub travel: Option<serde_json::Value>,
+    pub travel: Option<Travel>,
     /// KZT fiscalization payload (payment-token creation).
     #[serde(skip_serializing_if = "Option::is_none")]
     pub fiscalization: Option<Fiscalization>,
@@ -3004,6 +3211,9 @@ pub struct ProductCreateRequest {
     /// `payment` or `authorization`.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub transaction_type: Option<String>,
+    /// Descriptor shown on the cardholder statement.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub dynamic_billing_descriptor: Option<String>,
 }
 
 /// Request body for updating a pay-by-link product.
@@ -3051,6 +3261,9 @@ pub struct ProductUpdateRequest {
     /// `payment` or `authorization`.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub transaction_type: Option<String>,
+    /// Descriptor shown on the cardholder statement.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub dynamic_billing_descriptor: Option<String>,
 }
 
 /// A pay-by-link product and its payment links.
@@ -3137,6 +3350,10 @@ pub struct ChargeAdditionalData {
     /// Browser data for 3-D Secure 2.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub browser: Option<BrowserInfo>,
+    /// Remaining fields passed through unchanged (e.g. `kyc_answers`,
+    /// `customer_id_data`).
+    #[serde(flatten)]
+    pub extra: Option<serde_json::Value>,
 }
 
 /// Request to charge a saved card (oneclick / recurring).
@@ -3194,6 +3411,9 @@ pub struct ChargeRequest {
     /// KZT fiscalization payload.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub fiscalization: Option<Fiscalization>,
+    /// Travel industry data (flights).
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub travel: Option<Travel>,
 }
 
 // ── gateway: recipient tokenization ──────────────────────────────────────────
@@ -3224,7 +3444,12 @@ pub struct RecipientTokenizationRequest {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub recipient_billing_address: Option<BillingAddress>,
     /// The card to tokenize.
-    pub recipient_credit_card: PayoutCreditCard,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub recipient_credit_card: Option<PayoutCreditCard>,
+    /// Client-side-encrypted recipient card — mutually exclusive with
+    /// `recipient_credit_card`.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub encrypted_recipient_credit_card: Option<EncryptedRecipientCreditCard>,
     /// The customer requesting the tokenization.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub recipient: Option<Customer>,

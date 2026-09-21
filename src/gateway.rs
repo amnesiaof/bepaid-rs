@@ -128,12 +128,16 @@ impl BepaidClient {
     ///             token: None,
     ///             skip_three_d_secure_verification: None,
     ///             force_three_d_secure_verification: None,
+    ///             notification_url: None,
     ///         }),
     ///         customer: None,
     ///         additional_data: None,
     ///         encrypted_data: None,
     ///         fiscalization: None,
     ///         custom_fields: None,
+    ///         encrypted_credit_card: None,
+    ///         three_d_secure: None,
+    ///         travel: None,
     ///     };
     ///     let payment = client.create_payment(request, None).await?;
     ///     println!("uid: {}", payment.uid);
@@ -191,12 +195,16 @@ impl BepaidClient {
     ///             token: None,
     ///             skip_three_d_secure_verification: None,
     ///             force_three_d_secure_verification: None,
+    ///             notification_url: None,
     ///         }),
     ///         customer: None,
     ///         billing_address: None,
     ///         additional_data: None,
     ///         verification_url: None,
     ///         custom_fields: None,
+    ///         encrypted_credit_card: None,
+    ///         three_d_secure: None,
+    ///         travel: None,
     ///     };
     ///     let authorization = client.create_authorization(request, None).await?;
     ///     if let Some(url) = authorization.redirect_url {
@@ -379,6 +387,7 @@ impl BepaidClient {
     ///         customer: None,
     ///         additional_data: None,
     ///         fiscalization: None,
+    ///         travel: None,
     ///     };
     ///     let charge = client.charge_saved_card(request, None).await?;
     ///     println!("uid: {}", charge.uid);
@@ -441,6 +450,7 @@ impl BepaidClient {
     ///             token: None,
     ///             skip_three_d_secure_verification: None,
     ///             force_three_d_secure_verification: None,
+    ///             notification_url: None,
     ///         }),
     ///         three_d_secure: None,
     ///         travel: None,
@@ -553,12 +563,13 @@ impl BepaidClient {
     ///         description: Some("Tokenize card".to_owned()),
     ///         tracking_id: None,
     ///         recipient_billing_address: None,
-    ///         recipient_credit_card: PayoutCreditCard {
+    ///         recipient_credit_card: Some(PayoutCreditCard {
     ///             number: Some("4242424242424242".to_owned()),
     ///             holder: Some("John Smith".to_owned()),
     ///             exp_month: Some("10".to_owned()),
     ///             exp_year: Some("2030".to_owned()),
-    ///         },
+    ///         }),
+    ///         encrypted_recipient_credit_card: None,
     ///         recipient: None,
     ///         additional_data: None,
     ///     };

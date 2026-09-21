@@ -3,19 +3,21 @@ use bepaid::{
     types::{
         AdditionalData, ApmConfirmRequest, ApmPaymentRequest, ApmPayoutRequest,
         AuthorizationRequest, BalanceRequest, CancelSubscriptionRequest, CaptureRequest,
-        ChargeCreditCard, ChargeRequest, CheckoutRequest, CheckupRequest, CreateTokenRequest,
-        CreditCardRaw, CurrencyQueryRequest, CustomerRecord, EripDevice, Fiscalization,
+        CardNotification, ChargeAdditionalData, ChargeCreditCard, ChargeRequest, CheckoutRequest,
+        CheckupRequest, CreateTokenRequest, CreditCardRaw, CurrencyQueryRequest, CustomerRecord,
+        EncryptedCreditCard, EncryptedRecipientCreditCard, EripDevice, Fiscalization,
         FiscalizationPosition, FiscalizationTax, MasterpassData, MasterpassDeleteCardRequest,
         MasterpassGetCardRequest, MasterpassGetCardsRequest, MasterpassGetSavedCardRequest,
         MasterpassLoginRequest, MasterpassParams, P2pRequest, PaymentRequest, PayoutCreditCard,
         PayoutRequest, ProductCreateRequest, ProductUpdateRequest, ProofDocument, ProofRequest,
         RecipientTokenizationRequest, RefundRequest, ReportListRequest, ReportListV3Params,
         ReportListV3Request, ReportParams, SmartRoutingOptions, SplitRecipient,
-        SubscriptionCreateRequest, TokenizationRequest, VoidRequest,
+        SubscriptionCreateRequest, ThreeDSecureAdvanced, TokenizationRequest, Travel,
+        TravelAirline, TravelAirlineLeg, TravelPassenger, UpdateTokenRequest, VoidRequest,
     },
     webhook::{
-        parse_checkout_webhook, parse_subscription_webhook, parse_webhook, verify_webhook_auth,
-        verify_webhook_signature,
+        parse_card_notification, parse_checkout_webhook, parse_subscription_webhook, parse_webhook,
+        verify_webhook_auth, verify_webhook_signature,
     },
 };
 use wiremock::{
@@ -68,6 +70,9 @@ async fn create_payment_happy_path() {
                 encrypted_data: None,
                 fiscalization: None,
                 custom_fields: None,
+                encrypted_credit_card: None,
+                three_d_secure: None,
+                travel: None,
             },
             None,
         )
@@ -133,6 +138,9 @@ async fn create_payment_serializes_card() {
             encrypted_data: None,
             fiscalization: None,
             custom_fields: None,
+            encrypted_credit_card: None,
+            three_d_secure: None,
+            travel: None,
         };
         assert_eq!(
             client(&server).create_payment(req, None).await.unwrap().uid,
@@ -182,6 +190,9 @@ async fn create_payment_serializes_h2h_fields() {
             encrypted_data: None,
             fiscalization: None,
             custom_fields: None,
+            encrypted_credit_card: None,
+            three_d_secure: None,
+            travel: None,
         },
         None,
     )
@@ -261,6 +272,9 @@ async fn create_payment_serializes_fiscalization_and_encrypted_data() {
                 }],
             }),
             custom_fields: None,
+            encrypted_credit_card: None,
+            three_d_secure: None,
+            travel: None,
         },
         None,
     )
@@ -622,6 +636,9 @@ async fn create_payment_with_masterpass_additional_data() {
                 encrypted_data: None,
                 fiscalization: None,
                 custom_fields: None,
+                encrypted_credit_card: None,
+                three_d_secure: None,
+                travel: None,
             },
             None,
         )
@@ -714,6 +731,9 @@ async fn create_authorization_with_masterpass_additional_data() {
                 }),
                 verification_url: None,
                 custom_fields: None,
+                encrypted_credit_card: None,
+                three_d_secure: None,
+                travel: None,
             },
             None,
         )
@@ -775,6 +795,9 @@ async fn create_payment_rejects_invalid_amount() {
                 encrypted_data: None,
                 fiscalization: None,
                 custom_fields: None,
+                encrypted_credit_card: None,
+                three_d_secure: None,
+                travel: None,
             },
             None,
         )
@@ -858,6 +881,7 @@ async fn create_authorization_returns_redirect() {
                         token: Some(token.into()),
                         skip_three_d_secure_verification: None,
                         force_three_d_secure_verification: None,
+                        notification_url: None,
                     }),
                     customer: None,
                     billing_address: None,
@@ -873,6 +897,9 @@ async fn create_authorization_returns_redirect() {
                     }),
                     verification_url: None,
                     custom_fields: None,
+                    encrypted_credit_card: None,
+                    three_d_secure: None,
+                    travel: None,
                 },
                 None,
             )
@@ -1721,6 +1748,9 @@ async fn erip_komplat_uses_existing_authorization_extra() {
                     excluded_gateways: None,
                     extra: Some(komplat),
                 }),
+                encrypted_credit_card: None,
+                three_d_secure: None,
+                travel: None,
             },
             None,
         )
@@ -3636,6 +3666,7 @@ async fn create_product_happy_path() {
             shop_id: None,
             language: Some("en".to_owned()),
             transaction_type: Some("payment".to_owned()),
+            dynamic_billing_descriptor: None,
         })
         .await
         .expect("product creation should succeed");
@@ -3746,6 +3777,7 @@ async fn update_product_happy_path() {
             shop_id: None,
             language: None,
             transaction_type: None,
+            dynamic_billing_descriptor: None,
         },
     )
     .await
@@ -3828,6 +3860,7 @@ async fn charge_saved_card_happy_path() {
                 customer: None,
                 additional_data: None,
                 fiscalization: None,
+                travel: None,
             },
             None,
         )
@@ -3861,12 +3894,13 @@ async fn recipient_tokenization_happy_path() {
             description: Some("Tokenize card".into()),
             tracking_id: None,
             recipient_billing_address: None,
-            recipient_credit_card: PayoutCreditCard {
+            recipient_credit_card: Some(PayoutCreditCard {
                 number: Some("4242424242424242".into()),
                 holder: Some("John Smith".into()),
                 exp_month: Some("10".into()),
                 exp_year: Some("2030".into()),
-            },
+            }),
+            encrypted_recipient_credit_card: None,
             recipient: None,
             additional_data: None,
         })
@@ -3938,6 +3972,7 @@ async fn create_tokenization_happy_path() {
                     token: None,
                     skip_three_d_secure_verification: Some(false),
                     force_three_d_secure_verification: None,
+                    notification_url: None,
                 }),
                 three_d_secure: None,
                 travel: None,
@@ -4249,6 +4284,9 @@ async fn create_payment_sends_request_id_header() {
             custom_fields: None,
             encrypted_data: None,
             fiscalization: None,
+            encrypted_credit_card: None,
+            three_d_secure: None,
+            travel: None,
         },
         Some("uuid-request-1"),
     )
@@ -4267,7 +4305,7 @@ async fn checkout_response_preserves_extra_fields() {
         .and(wiremock::matchers::header("authorization", AUTH))
         .and(wiremock::matchers::body_json(serde_json::json!({"checkout": {
             "transaction_type": "payment", "order": {"currency": "USD", "amount": 100},
-            "settings": settings, "dynamic_billing_descriptor": "Shop", "travel": {"flight": "AB123"}
+            "settings": settings, "dynamic_billing_descriptor": "Shop", "travel": {"airline": {"agency_code": "AB", "ticket_number": "123"}}
         }})))
         .respond_with(ResponseTemplate::new(201).set_body_json(serde_json::json!({
             "checkout": {
@@ -4301,7 +4339,17 @@ async fn checkout_response_preserves_extra_fields() {
             },
             customer: None,
             dynamic_billing_descriptor: Some("Shop".into()),
-            travel: Some(serde_json::json!({"flight": "AB123"})),
+            travel: Some(bepaid::types::Travel {
+                airline: Some(bepaid::types::TravelAirline {
+                    agency_code: Some("AB".into()),
+                    agency_name: None,
+                    ticket_number: Some("123".into()),
+                    booking_number: None,
+                    restricted_ticket_indicator: None,
+                    legs: None,
+                    passengers: None,
+                }),
+            }),
             fiscalization: None,
         })
         .await
@@ -4473,6 +4521,9 @@ async fn create_payment_decodes_full_transaction() {
                 encrypted_data: None,
                 fiscalization: None,
                 custom_fields: None,
+                encrypted_credit_card: None,
+                three_d_secure: None,
+                travel: None,
             },
             None,
         )
@@ -4559,6 +4610,9 @@ async fn async_payment_flow_happy_path() {
                 encrypted_data: None,
                 fiscalization: None,
                 custom_fields: None,
+                encrypted_credit_card: None,
+                three_d_secure: None,
+                travel: None,
             },
             None,
         )
@@ -4710,6 +4764,9 @@ async fn async_authorization_ack() {
                 additional_data: None,
                 verification_url: None,
                 custom_fields: None,
+                encrypted_credit_card: None,
+                three_d_secure: None,
+                travel: None,
             },
             Some("async-auth"),
         )
@@ -4887,6 +4944,7 @@ async fn update_product_serializes_new_fields() {
                 shop_id: None,
                 language: None,
                 transaction_type: None,
+                dynamic_billing_descriptor: None,
             },
         )
         .await
@@ -4993,6 +5051,9 @@ async fn split_v2_serializes_recipients_array_and_smart_routing() {
                 encrypted_data: None,
                 fiscalization: None,
                 custom_fields: None,
+                encrypted_credit_card: None,
+                three_d_secure: None,
+                travel: None,
             },
             None,
         )
@@ -5068,6 +5129,7 @@ async fn charge_serializes_fiscalization() {
                         taxes: None,
                     }],
                 }),
+                travel: None,
             },
             None,
         )
@@ -5281,6 +5343,9 @@ async fn cascading_serializes_excluded_gateways_and_parses_gateway_id() {
                 encrypted_data: None,
                 fiscalization: None,
                 custom_fields: None,
+                encrypted_credit_card: None,
+                three_d_secure: None,
+                travel: None,
             },
             None,
         )
@@ -5360,4 +5425,621 @@ async fn transaction_parses_fiscalization_receipts() {
             .as_deref(),
         Some("John")
     );
+}
+
+// ── G17: dev-tools / antifraud / reference parity ─────────────────────────────
+
+#[tokio::test]
+async fn update_token_happy_path() {
+    let server = MockServer::start().await;
+    Mock::given(method("POST"))
+        .and(path("/credit_cards/tok123"))
+        .and(body_partial_json(serde_json::json!({
+            "request": {"holder": "John Doe", "exp_month": "01", "exp_year": "2028"}
+        })))
+        .respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({
+            "holder": "John Doe",
+            "stamp": "stamp",
+            "brand": "visa",
+            "last_4": "0000",
+            "first_1": "4",
+            "token": "tok123",
+            "exp_month": 1,
+            "exp_year": 2028
+        })))
+        .expect(1)
+        .mount(&server)
+        .await;
+
+    let t = client(&server)
+        .update_token(
+            "tok123",
+            UpdateTokenRequest {
+                holder: Some("John Doe".into()),
+                exp_month: Some("01".into()),
+                exp_year: Some("2028".into()),
+            },
+        )
+        .await
+        .expect("update should succeed");
+
+    assert_eq!(t.token.as_deref(), Some("tok123"));
+    assert_eq!(t.exp_month, Some(1));
+}
+
+#[tokio::test]
+async fn payment_encrypted_card_three_ds_and_travel() {
+    let server = MockServer::start().await;
+    Mock::given(method("POST"))
+        .and(path("/transactions/payments"))
+        .and(body_partial_json(serde_json::json!({
+            "request": {
+                "amount": "700",
+                "currency": "USD",
+                "encrypted_credit_card": {
+                    "number": "$begatewaycsejs_1_0_0$abc",
+                    "verification_value": "$begatewaycsejs_1_0_0$cvv"
+                },
+                "three_d_secure": {"advanced": true},
+                "travel": {
+                    "airline": {
+                        "agency_code": "AB",
+                        "legs": [{"flight_number": "SU1", "class": "economy"}],
+                        "passengers": [{"first_name": "John", "last_name": "Doe"}]
+                    }
+                }
+            }
+        })))
+        .respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({
+            "transaction": {"uid": "tx1", "status": "successful"}
+        })))
+        .expect(1)
+        .mount(&server)
+        .await;
+
+    let resp = client(&server)
+        .create_payment(
+            PaymentRequest {
+                amount: "700".into(),
+                currency: "USD".into(),
+                test: false,
+                description: "Test".into(),
+                tracking_id: "t1".into(),
+                expired_at: None,
+                dynamic_billing_descriptor: None,
+                language: None,
+                notification_url: None,
+                verification_url: None,
+                return_url: None,
+                duplicate_check: None,
+                billing_address: None,
+                credit_card: None,
+                customer: None,
+                additional_data: None,
+                encrypted_data: None,
+                fiscalization: None,
+                custom_fields: None,
+                encrypted_credit_card: Some(EncryptedCreditCard {
+                    number: Some("$begatewaycsejs_1_0_0$abc".into()),
+                    holder: None,
+                    exp_month: None,
+                    exp_year: None,
+                    verification_value: Some("$begatewaycsejs_1_0_0$cvv".into()),
+                }),
+                three_d_secure: Some(ThreeDSecureAdvanced {
+                    advanced: Some(true),
+                }),
+                travel: Some(Travel {
+                    airline: Some(TravelAirline {
+                        agency_code: Some("AB".into()),
+                        agency_name: None,
+                        ticket_number: None,
+                        booking_number: None,
+                        restricted_ticket_indicator: None,
+                        legs: Some(vec![TravelAirlineLeg {
+                            airline_code: None,
+                            stop_over_code: None,
+                            flight_number: Some("SU1".into()),
+                            departure_date_time: None,
+                            arrival_date_time: None,
+                            originating_country: None,
+                            originating_city: None,
+                            originating_airport_code: None,
+                            destination_country: None,
+                            destination_city: None,
+                            destination_airport_code: None,
+                            coupon: None,
+                            travel_class: Some("economy".into()),
+                        }]),
+                        passengers: Some(vec![TravelPassenger {
+                            first_name: Some("John".into()),
+                            last_name: Some("Doe".into()),
+                        }]),
+                    }),
+                }),
+            },
+            None,
+        )
+        .await
+        .expect("payment should succeed");
+
+    assert_eq!(resp.uid, "tx1");
+}
+
+#[tokio::test]
+async fn authorization_encrypted_card_three_ds_and_travel() {
+    let server = MockServer::start().await;
+    Mock::given(method("POST"))
+        .and(path("/transactions/authorizations"))
+        .and(body_partial_json(serde_json::json!({
+            "request": {
+                "amount": 104,
+                "currency": "EUR",
+                "encrypted_credit_card": {"number": "$begatewaycsejs_1_0_0$xyz"},
+                "three_d_secure": {"advanced": true},
+                "travel": {"airline": {"ticket_number": "123"}}
+            }
+        })))
+        .respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({
+            "transaction": {"uid": "auth1", "status": "successful"}
+        })))
+        .expect(1)
+        .mount(&server)
+        .await;
+
+    let resp = client(&server)
+        .create_authorization(
+            AuthorizationRequest {
+                amount: 104,
+                currency: "EUR".into(),
+                description: "Auth".into(),
+                tracking_id: "a1".into(),
+                payment_method_type: None,
+                test: None,
+                duplicate_check: None,
+                language: None,
+                notification_url: None,
+                return_url: None,
+                expired_at: None,
+                dynamic_billing_descriptor: None,
+                credit_card: None,
+                customer: None,
+                billing_address: None,
+                additional_data: None,
+                verification_url: None,
+                custom_fields: None,
+                encrypted_credit_card: Some(EncryptedCreditCard {
+                    number: Some("$begatewaycsejs_1_0_0$xyz".into()),
+                    holder: None,
+                    exp_month: None,
+                    exp_year: None,
+                    verification_value: None,
+                }),
+                three_d_secure: Some(ThreeDSecureAdvanced {
+                    advanced: Some(true),
+                }),
+                travel: Some(Travel {
+                    airline: Some(TravelAirline {
+                        agency_code: None,
+                        agency_name: None,
+                        ticket_number: Some("123".into()),
+                        booking_number: None,
+                        restricted_ticket_indicator: None,
+                        legs: None,
+                        passengers: None,
+                    }),
+                }),
+            },
+            None,
+        )
+        .await
+        .expect("authorization should succeed");
+
+    assert_eq!(resp.uid, "auth1");
+}
+
+#[tokio::test]
+async fn charge_travel_and_kyc_passthrough() {
+    let server = MockServer::start().await;
+    Mock::given(method("POST"))
+        .and(path("/services/credit_cards/charges"))
+        .and(body_partial_json(serde_json::json!({
+            "request": {
+                "amount": 700,
+                "currency": "BYN",
+                "credit_card": {"token": "saved-token"},
+                "travel": {"airline": {"agency_code": "AB"}},
+                "additional_data": {
+                    "kyc_answers": {"source": "quickbit"},
+                    "customer_id_data": {"document_number": "AA1234567"}
+                }
+            }
+        })))
+        .respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({
+            "transaction": {"uid": "ch1", "status": "successful"}
+        })))
+        .expect(1)
+        .mount(&server)
+        .await;
+
+    let resp = client(&server)
+        .charge_saved_card(
+            ChargeRequest {
+                amount: 700,
+                currency: "BYN".into(),
+                description: "Charge".into(),
+                tracking_id: None,
+                expired_at: None,
+                duplicate_check: None,
+                dynamic_billing_descriptor: None,
+                language: None,
+                notification_url: None,
+                verification_url: None,
+                return_url: None,
+                test: Some(true),
+                force_three_d_secure_verification: None,
+                credit_card: ChargeCreditCard {
+                    number: None,
+                    verification_value: None,
+                    holder: None,
+                    exp_month: None,
+                    exp_year: None,
+                    token: Some("saved-token".into()),
+                    skip_three_d_secure_verification: None,
+                },
+                customer: None,
+                additional_data: Some(ChargeAdditionalData {
+                    contract: None,
+                    excluded_gateways: None,
+                    browser: None,
+                    extra: Some(serde_json::json!({
+                        "kyc_answers": {"source": "quickbit"},
+                        "customer_id_data": {"document_number": "AA1234567"}
+                    })),
+                }),
+                fiscalization: None,
+                travel: Some(Travel {
+                    airline: Some(TravelAirline {
+                        agency_code: Some("AB".into()),
+                        agency_name: None,
+                        ticket_number: None,
+                        booking_number: None,
+                        restricted_ticket_indicator: None,
+                        legs: None,
+                        passengers: None,
+                    }),
+                }),
+            },
+            None,
+        )
+        .await
+        .expect("charge should succeed");
+
+    assert_eq!(resp.uid, "ch1");
+}
+
+#[tokio::test]
+async fn recipient_tokenization_encrypted_card() {
+    let server = MockServer::start().await;
+    Mock::given(method("POST"))
+        .and(path("/transactions/recipient_tokenizations"))
+        .and(body_partial_json(serde_json::json!({
+            "request": {
+                "encrypted_recipient_credit_card": {
+                    "number": "$begatewaycsejs_1_0_0$r",
+                    "exp_month": "$begatewaycsejs_1_0_0$m"
+                }
+            }
+        })))
+        .respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({
+            "transaction": {"uid": "rt1", "status": "successful"}
+        })))
+        .expect(1)
+        .mount(&server)
+        .await;
+
+    let resp = client(&server)
+        .tokenize_recipient_card(RecipientTokenizationRequest {
+            description: None,
+            tracking_id: None,
+            recipient_billing_address: None,
+            recipient_credit_card: None,
+            encrypted_recipient_credit_card: Some(EncryptedRecipientCreditCard {
+                number: Some("$begatewaycsejs_1_0_0$r".into()),
+                holder: None,
+                exp_month: Some("$begatewaycsejs_1_0_0$m".into()),
+                exp_year: None,
+            }),
+            recipient: None,
+            additional_data: None,
+        })
+        .await
+        .expect("recipient tokenization should succeed");
+
+    assert_eq!(resp["transaction"]["uid"], "rt1");
+}
+
+#[tokio::test]
+async fn transaction_conversion_is_typed() {
+    let server = MockServer::start().await;
+    Mock::given(method("GET"))
+        .and(path("/transactions/tx-conv"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({
+            "transaction": {
+                "uid": "tx-conv",
+                "conversion": {
+                    "converted_amount": 12345,
+                    "converted_currency": "BYN",
+                    "exchange_rate": {"USD_TO_BYN": 3.2},
+                    "exchange_rate_ids": ["rate-1"],
+                    "exchange_rate_date": "2026-01-01T00:00:00Z"
+                }
+            }
+        })))
+        .expect(1)
+        .mount(&server)
+        .await;
+
+    let t = client(&server)
+        .get_transaction("tx-conv")
+        .await
+        .expect("transaction should parse");
+    let c = t.conversion.expect("conversion present");
+
+    assert_eq!(c.converted_amount, Some(12345));
+    assert_eq!(c.converted_currency.as_deref(), Some("BYN"));
+    assert_eq!(c.exchange_rate.unwrap().get("USD_TO_BYN"), Some(&3.2));
+    assert_eq!(
+        c.exchange_rate_ids.as_deref(),
+        Some(["rate-1".to_owned()].as_slice())
+    );
+}
+
+#[tokio::test]
+async fn three_ds_verification_typed_fields_are_preserved() {
+    let server = MockServer::start().await;
+    Mock::given(method("GET"))
+        .and(path("/transactions/tx3ds"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({
+            "transaction": {
+                "uid": "tx3ds",
+                "three_d_secure_verification": {
+                    "status": "incomplete",
+                    "acs_url": "https://acs.example/authenticate",
+                    "pa_req": "BASE64REQ",
+                    "md": "MERCHANTDATA",
+                    "method_process_url": "https://acs.example/method",
+                    "ds_transaction_id": "ds-0001"
+                }
+            }
+        })))
+        .expect(1)
+        .mount(&server)
+        .await;
+
+    let t = client(&server)
+        .get_transaction("tx3ds")
+        .await
+        .expect("transaction should parse");
+    let v = t.three_d_secure_verification.expect("3ds present");
+
+    assert_eq!(
+        v.acs_url.as_deref(),
+        Some("https://acs.example/authenticate")
+    );
+    assert_eq!(v.pa_req.as_deref(), Some("BASE64REQ"));
+    assert_eq!(v.md.as_deref(), Some("MERCHANTDATA"));
+    assert_eq!(
+        v.method_process_url.as_deref(),
+        Some("https://acs.example/method")
+    );
+    assert_eq!(v.ds_transaction_id.as_deref(), Some("ds-0001"));
+}
+
+#[tokio::test]
+async fn smart_routing_verification_data_is_preserved() {
+    let server = MockServer::start().await;
+    Mock::given(method("GET"))
+        .and(path("/transactions/tx-sr"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({
+            "transaction": {
+                "uid": "tx-sr",
+                "smart_routing_verification": {
+                    "status": "successful",
+                    "data": {
+                        "status": "passed",
+                        "object_name": "gateway-1",
+                        "object_flows": []
+                    }
+                }
+            }
+        })))
+        .expect(1)
+        .mount(&server)
+        .await;
+
+    let t = client(&server)
+        .get_transaction("tx-sr")
+        .await
+        .expect("transaction should parse");
+    let v = t.smart_routing_verification.expect("smart routing present");
+
+    assert_eq!(v.status.as_deref(), Some("successful"));
+    let data = v.data.expect("data present");
+    assert_eq!(
+        data.get("object_name").and_then(|x| x.as_str()),
+        Some("gateway-1")
+    );
+}
+
+#[test]
+fn parse_card_notification_flat_payload() {
+    let body = r#"{
+        "holder": "John Doe",
+        "stamp": "stamp",
+        "brand": "visa",
+        "last_4": "0000",
+        "first_1": "4",
+        "token": "tok",
+        "product": null,
+        "bin": "400000",
+        "bin_8": "40000000",
+        "issuer_country": null,
+        "issuer_name": null,
+        "exp_month": 1,
+        "exp_year": 2028,
+        "image": "https://cdn.example/card.png"
+    }"#;
+
+    let n: CardNotification =
+        parse_card_notification(body).expect("card notification should parse");
+
+    assert_eq!(n.brand.as_deref(), Some("visa"));
+    assert_eq!(n.image.as_deref(), Some("https://cdn.example/card.png"));
+    assert_eq!(n.exp_month, Some(1));
+    assert_eq!(n.exp_year, Some(2028));
+}
+
+#[tokio::test]
+async fn credit_card_notification_url_is_sent() {
+    let server = MockServer::start().await;
+    Mock::given(method("POST"))
+        .and(path("/transactions/tokenizations"))
+        .and(body_partial_json(serde_json::json!({
+            "request": {
+                "credit_card": {"notification_url": "https://shop.example/card-notify"}
+            }
+        })))
+        .respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({
+            "transaction": {"uid": "tok1", "status": "successful"}
+        })))
+        .expect(1)
+        .mount(&server)
+        .await;
+
+    let resp = client(&server)
+        .create_tokenization(
+            TokenizationRequest {
+                amount: 100,
+                currency: "USD".into(),
+                description: "Tokenize".into(),
+                tracking_id: None,
+                duplicate_check: None,
+                dynamic_billing_descriptor: None,
+                language: None,
+                notification_url: None,
+                verification_url: None,
+                return_url: None,
+                test: Some(true),
+                billing_address: None,
+                credit_card: Some(CreditCardRaw {
+                    number: Some("4200000000000000".into()),
+                    verification_value: None,
+                    holder: None,
+                    exp_month: None,
+                    exp_year: None,
+                    save_card: None,
+                    token: None,
+                    skip_three_d_secure_verification: None,
+                    force_three_d_secure_verification: None,
+                    notification_url: Some("https://shop.example/card-notify".into()),
+                }),
+                three_d_secure: None,
+                travel: None,
+                customer: None,
+                additional_data: None,
+            },
+            None,
+        )
+        .await
+        .expect("tokenization should succeed");
+
+    assert_eq!(resp.uid, "tok1");
+}
+
+#[tokio::test]
+async fn product_dynamic_billing_descriptor_is_sent() {
+    let server = MockServer::start().await;
+    Mock::given(method("POST"))
+        .and(path("/products"))
+        .and(body_partial_json(serde_json::json!({
+            "dynamic_billing_descriptor": "SHOP*ITEM"
+        })))
+        .respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({
+            "id": "p1",
+            "name": "Item",
+            "description": "d",
+            "currency": "USD",
+            "amount": 700,
+            "quantity": null,
+            "infinite": true,
+            "language": "en",
+            "transaction_type": "payment",
+            "created_at": "2026-01-01T00:00:00Z",
+            "updated_at": "2026-01-01T00:00:00Z",
+            "test": true,
+            "additional_data": {},
+            "pay_url": "https://x/pay",
+            "payment_url": "https://x/payment",
+            "confirm_url": "https://x/confirm"
+        })))
+        .expect(1)
+        .mount(&server)
+        .await;
+
+    Mock::given(method("PUT"))
+        .and(path("/products/p1"))
+        .and(body_partial_json(serde_json::json!({
+            "dynamic_billing_descriptor": "SHOP*NEW"
+        })))
+        .respond_with(ResponseTemplate::new(204))
+        .expect(1)
+        .mount(&server)
+        .await;
+
+    let p = client(&server)
+        .create_product(ProductCreateRequest {
+            name: "Item".into(),
+            description: "d".into(),
+            currency: "USD".into(),
+            amount: 700,
+            quantity: None,
+            infinite: Some(true),
+            visible_fields: None,
+            test: Some(true),
+            immortal: None,
+            expired_at: None,
+            return_url: None,
+            shop_id: None,
+            language: None,
+            transaction_type: None,
+            dynamic_billing_descriptor: Some("SHOP*ITEM".into()),
+        })
+        .await
+        .expect("create product should succeed");
+    assert_eq!(p.id, "p1");
+
+    client(&server)
+        .update_product(
+            "p1",
+            ProductUpdateRequest {
+                name: None,
+                description: None,
+                currency: None,
+                amount: None,
+                visible_fields: None,
+                infinite: None,
+                quantity: None,
+                test: None,
+                immortal: None,
+                expired_at: None,
+                return_url: None,
+                shop_id: None,
+                language: None,
+                transaction_type: None,
+                dynamic_billing_descriptor: Some("SHOP*NEW".into()),
+            },
+        )
+        .await
+        .expect("update product should succeed");
 }

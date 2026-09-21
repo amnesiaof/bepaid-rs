@@ -39,6 +39,7 @@ async fn main() -> Result<(), bepaid::BepaidError> {
                     token: None,
                     skip_three_d_secure_verification: None,
                     force_three_d_secure_verification: None,
+                    notification_url: None,
                 }),
                 customer: Some(Customer {
                     id: None,
@@ -70,6 +71,9 @@ async fn main() -> Result<(), bepaid::BepaidError> {
                 return_url: None,
                 expired_at: None,
                 dynamic_billing_descriptor: None,
+                encrypted_credit_card: None,
+                three_d_secure: None,
+                travel: None,
             },
             None,
         )
