@@ -5,7 +5,31 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [0.9.0] - 2026-09-21
+
+### Added
+- Split payment v2 recipients: `AdditionalData.split` now accepts `Vec<SplitRecipient>`
+  (amount, tax_id, company_name, bank_account, bank_bic, description, legal_address,
+  mailing_address, country, city, postal_code, contact_email, contact_phone, memo) and
+  `AdditionalData.smart_routing_options.allow_halva`.
+- Fiscalization on saved-card charges (`ChargeRequest.fiscalization`), refunds
+  (`RefundRequest.fiscalization: true`) and payment-token creation
+  (`CheckoutRequest.fiscalization`); transaction responses now decode the
+  `fiscalization` block with `FiscalizationInfo`, `FiscalizationReceipt` and
+  `FiscalizationReceiptInfo`.
+- Paginated merchant reports: `ReportListV3Params`/`ReportListV3Request` and
+  `get_reports_v3` (`POST /api/reports` with `X-Api-Version: 3`, `from`/`to`,
+  `starting_after`/`ending_before`/`manual_correction_from`/`manual_correction_to`);
+  `ReportListResponse` gains `has_more`, `first_object_id` and `last_object_id`.
+- Cascading: `AdditionalData.excluded_gateways` (renamed to `Vec<i64>` on
+  `ChargeAdditionalData`) for retries with `duplicate_check: false`.
+
+### Changed
+- **Breaking:** new struct fields on `AdditionalData` (`split`,
+  `smart_routing_options`, `excluded_gateways`), `ChargeRequest.fiscalization`,
+  `RefundRequest.fiscalization` and `CheckoutRequest.fiscalization` — existing
+  literals must supply them (`None` when unused); `ChargeAdditionalData.excluded_gateways`
+  type is now `Vec<i64>` (was `Vec<String>`).
 
 ## [0.8.0] - 2026-09-17
 
@@ -297,7 +321,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Direct (APM) API: `create_apm_payment`, `apm_refund`, `apm_full_refund`.
 - Webhooks: `verify_webhook_auth`, `parse_webhook`.
 
-[Unreleased]: https://github.com/amnesiaof/bepaid-rs/compare/v0.8.0...HEAD
+[Unreleased]: https://github.com/amnesiaof/bepaid-rs/compare/v0.9.0...HEAD
+[0.9.0]: https://github.com/amnesiaof/bepaid-rs/compare/v0.8.0...v0.9.0
 [0.8.0]: https://github.com/amnesiaof/bepaid-rs/compare/v0.7.0...v0.8.0
 [0.7.0]: https://github.com/amnesiaof/bepaid-rs/compare/v0.6.9...v0.7.0
 [0.6.9]: https://github.com/amnesiaof/bepaid-rs/compare/v0.6.8...v0.6.9

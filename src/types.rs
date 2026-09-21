@@ -226,9 +226,75 @@ pub struct AdditionalData {
     /// Masterpass parameters for saving cards and payments.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub masterpass: Option<MasterpassData>,
+    /// v2 split distribution: one entry per recipient. The sum of the split
+    /// amounts must equal the request `amount` (else error `E.1025`).
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub split: Option<Vec<SplitRecipient>>,
+    /// Smart-routing options.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub smart_routing_options: Option<SmartRoutingOptions>,
+    /// Gateway ids excluded from cascading.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub excluded_gateways: Option<Vec<i64>>,
     /// Any other method-specific fields.
     #[serde(flatten)]
     pub extra: Option<serde_json::Value>,
+}
+
+/// Smart-routing options of a payment (`additional_data.smart_routing_options`).
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SmartRoutingOptions {
+    /// `true` disables the halva co-brand on the payment page.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub allow_halva: Option<bool>,
+}
+
+/// One recipient of a v2 split payment (`additional_data.split[]`).
+///
+/// `amount` and `tax_id` are required; the sum of all `amount`s must equal the
+/// request `amount`.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SplitRecipient {
+    /// Amount (minor units) routed to this recipient.
+    pub amount: i64,
+    /// Recipient UNP (taxpayer id).
+    pub tax_id: String,
+    /// Recipient company name.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub company_name: Option<String>,
+    /// Recipient bank account (IBAN).
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub bank_account: Option<String>,
+    /// Recipient bank BIC.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub bank_bic: Option<String>,
+    /// Payment description for this recipient.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub description: Option<String>,
+    /// Recipient legal address.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub legal_address: Option<String>,
+    /// Recipient mailing address.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub mailing_address: Option<String>,
+    /// Recipient country.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub country: Option<String>,
+    /// Recipient city.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub city: Option<String>,
+    /// Recipient postal code.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub postal_code: Option<String>,
+    /// Recipient contact email.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub contact_email: Option<String>,
+    /// Recipient contact phone.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub contact_phone: Option<String>,
+    /// Free-form memo.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub memo: Option<String>,
 }
 
 /// Masterpass data attached to a payment or authorization.
@@ -394,6 +460,56 @@ pub struct Fiscalization {
     pub external_id: String,
     /// Itemized positions.
     pub positions: Vec<FiscalizationPosition>,
+}
+
+/// Fiscal receipt info nested in a transaction fiscalization.
+#[derive(Debug, Clone, Deserialize)]
+#[allow(missing_docs)]
+pub struct FiscalizationReceiptInfo {
+    pub kkm_id: Option<String>,
+    pub id: Option<String>,
+    pub shift_id: Option<String>,
+    pub serial_id: Option<String>,
+    pub serial_shift_id: Option<String>,
+    pub issue_time: Option<String>,
+    pub operation_type: Option<String>,
+    pub payment_type: Option<String>,
+    pub currency_code: Option<String>,
+    pub subtotal_amount: Option<i64>,
+    pub total_amount: Option<i64>,
+    pub cashier_code: Option<String>,
+    pub cashier_name: Option<String>,
+    pub receipt_num: Option<String>,
+    pub ofd_receipt_id: Option<String>,
+    pub ofd_qr_code: Option<String>,
+}
+
+/// One fiscal receipt of a transaction (`fiscalization.receipts[]`).
+#[derive(Debug, Clone, Deserialize)]
+#[allow(missing_docs)]
+pub struct FiscalizationReceipt {
+    pub id: Option<String>,
+    pub serial_id: Option<String>,
+    pub receipt_num: Option<String>,
+    pub created_at: Option<String>,
+    pub ofd_id: Option<String>,
+    pub ofd_link: Option<String>,
+    pub ofd_qr_code: Option<String>,
+    pub total_amount: Option<i64>,
+    pub receipt_info: Option<FiscalizationReceiptInfo>,
+}
+
+/// Fiscalization data returned with a transaction.
+#[derive(Debug, Clone, Deserialize)]
+#[allow(missing_docs)]
+pub struct FiscalizationInfo {
+    pub id: Option<String>,
+    pub external_id: Option<String>,
+    pub status: Option<String>,
+    pub code: Option<String>,
+    pub message: Option<String>,
+    pub friendly_message: Option<String>,
+    pub receipts: Option<Vec<FiscalizationReceipt>>,
 }
 
 /// A single custom field attached to a transaction (`custom_field_N` entry).
@@ -648,6 +764,8 @@ pub struct Transaction {
     pub custom_fields: Option<CustomFields>,
     /// Tokenization result (present on `tokenization` transactions).
     pub tokenization: Option<TokenizationInfo>,
+    /// Fiscalization result (present on fiscalized transactions).
+    pub fiscalization: Option<FiscalizationInfo>,
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -702,6 +820,9 @@ pub struct RefundRequest {
     /// Extra data (e.g. referer).
     #[serde(skip_serializing_if = "Option::is_none")]
     pub additional_data: Option<AdditionalData>,
+    /// Set to `true` to fiscalize the full amount of the parent transaction.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub fiscalization: Option<bool>,
 }
 
 /// Response of a capture operation.
@@ -987,6 +1108,9 @@ pub struct CheckoutRequest {
     /// Travel industry data (flights, car rentals).
     #[serde(skip_serializing_if = "Option::is_none")]
     pub travel: Option<serde_json::Value>,
+    /// KZT fiscalization payload (payment-token creation).
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub fiscalization: Option<Fiscalization>,
 }
 
 /// User-consent toggle settings on the confirmation page.
@@ -2679,7 +2803,45 @@ pub struct ReportListRequest {
     pub report_params: ReportParams,
 }
 
-/// Response of the report list (API v2).
+/// Filter for the paginated report list (API v3). Uses a `from`/`to` range and
+/// cursor pagination.
+#[derive(Debug, Clone, Serialize)]
+pub struct ReportListV3Params {
+    /// Date basis: `created_at`, `paid_at` or `settled_at`.
+    pub date_type: String,
+    /// Range start `YYYY-MM-DD hh:mm:ss`.
+    pub from: String,
+    /// Range end `YYYY-MM-DD hh:mm:ss`.
+    pub to: String,
+    /// Transaction status: `all`, `successful`, `failed`, `pending`,
+    /// `incomplete`.
+    pub status: String,
+    /// Payment method type: `credit_card`, `alternative` or `erip`.
+    pub payment_method_type: String,
+    /// IANA time zone, e.g. `Europe/London`.
+    pub time_zone: String,
+    /// Return rows after this cursor (`last_object_id` of the previous page).
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub starting_after: Option<String>,
+    /// Return rows before this cursor (`first_object_id` of the next page).
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub ending_before: Option<String>,
+    /// Manual-correction range start `YYYY-MM-DD hh:mm:ss`.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub manual_correction_from: Option<String>,
+    /// Manual-correction range end `YYYY-MM-DD hh:mm:ss`.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub manual_correction_to: Option<String>,
+}
+
+/// Body of the paginated report list request (API v3).
+#[derive(Debug, Clone, Serialize)]
+pub struct ReportListV3Request {
+    /// Report filters.
+    pub report_params: ReportListV3Params,
+}
+
+/// Response of the report list (API v2/v3).
 #[derive(Debug, Clone, Deserialize)]
 pub struct ReportListResponse {
     /// Report transactions.
@@ -2687,6 +2849,15 @@ pub struct ReportListResponse {
     /// Transaction count.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub count: Option<i64>,
+    /// Whether more rows are available (API v3).
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub has_more: Option<bool>,
+    /// Cursor of the first row in this page (API v3).
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub first_object_id: Option<String>,
+    /// Cursor of the last row in this page (API v3).
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub last_object_id: Option<String>,
 }
 
 /// Body of the report count request (API v3).
@@ -2962,7 +3133,7 @@ pub struct ChargeAdditionalData {
     pub contract: Option<Vec<String>>,
     /// Gateway IDs excluded from cascading.
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub excluded_gateways: Option<Vec<String>>,
+    pub excluded_gateways: Option<Vec<i64>>,
     /// Browser data for 3-D Secure 2.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub browser: Option<BrowserInfo>,
@@ -3020,6 +3191,9 @@ pub struct ChargeRequest {
     /// Additional data (contract types, excluded gateways, 3-D Secure 2 browser).
     #[serde(skip_serializing_if = "Option::is_none")]
     pub additional_data: Option<ChargeAdditionalData>,
+    /// KZT fiscalization payload.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub fiscalization: Option<Fiscalization>,
 }
 
 // ── gateway: recipient tokenization ──────────────────────────────────────────

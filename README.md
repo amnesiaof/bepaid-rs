@@ -12,7 +12,7 @@ and the Merchant API (reports, channel balances).
 
 ```toml
 [dependencies]
-bepaid = "0.8"
+bepaid = "0.9"
 ```
 
 Also needs a Tokio runtime (the client is async):

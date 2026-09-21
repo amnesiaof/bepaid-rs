@@ -9,7 +9,8 @@ use bepaid::{
         MasterpassGetCardRequest, MasterpassGetCardsRequest, MasterpassGetSavedCardRequest,
         MasterpassLoginRequest, MasterpassParams, P2pRequest, PaymentRequest, PayoutCreditCard,
         PayoutRequest, ProductCreateRequest, ProductUpdateRequest, ProofDocument, ProofRequest,
-        RecipientTokenizationRequest, RefundRequest, ReportListRequest, ReportParams,
+        RecipientTokenizationRequest, RefundRequest, ReportListRequest, ReportListV3Params,
+        ReportListV3Request, ReportParams, SmartRoutingOptions, SplitRecipient,
         SubscriptionCreateRequest, TokenizationRequest, VoidRequest,
     },
     webhook::{
@@ -613,6 +614,9 @@ async fn create_payment_with_masterpass_additional_data() {
                             session: Some("mp-session-1".into()),
                         }),
                     }),
+                    split: None,
+                    smart_routing_options: None,
+                    excluded_gateways: None,
                     extra: None,
                 }),
                 encrypted_data: None,
@@ -703,6 +707,9 @@ async fn create_authorization_with_masterpass_additional_data() {
                             session: Some("mp-session-1".into()),
                         }),
                     }),
+                    split: None,
+                    smart_routing_options: None,
+                    excluded_gateways: None,
                     extra: Some(serde_json::json!({"custom_data": "preserved"})),
                 }),
                 verification_url: None,
@@ -859,6 +866,9 @@ async fn create_authorization_returns_redirect() {
                         contract: Some(vec!["recurring".into()]),
                         referer: None,
                         masterpass: None,
+                        split: None,
+                        smart_routing_options: None,
+                        excluded_gateways: None,
                         extra: None,
                     }),
                     verification_url: None,
@@ -983,6 +993,7 @@ async fn refund_happy_path() {
                 reason: "Client request".into(),
                 tracking_id: None,
                 additional_data: None,
+                fiscalization: None,
             },
             None,
         )
@@ -1162,6 +1173,7 @@ async fn checkout_happy_path() {
             customer: None,
             dynamic_billing_descriptor: None,
             travel: None,
+            fiscalization: None,
         })
         .await
         .expect("checkout should succeed");
@@ -1214,6 +1226,7 @@ async fn payment_token_happy_path() {
             customer: None,
             dynamic_billing_descriptor: None,
             travel: None,
+            fiscalization: None,
         })
         .await
         .expect("token creation should succeed");
@@ -1703,6 +1716,9 @@ async fn erip_komplat_uses_existing_authorization_extra() {
                     contract: None,
                     referer: None,
                     masterpass: None,
+                    split: None,
+                    smart_routing_options: None,
+                    excluded_gateways: None,
                     extra: Some(komplat),
                 }),
             },
@@ -1808,6 +1824,7 @@ async fn erip_widget_metadata_stays_flat_with_typed_fields() {
         customer: None,
         dynamic_billing_descriptor: None,
         travel: None,
+        fiscalization: None,
         order: CheckoutOrder {
             amount: 100,
             currency: "BYN".into(),
@@ -3810,6 +3827,7 @@ async fn charge_saved_card_happy_path() {
                 },
                 customer: None,
                 additional_data: None,
+                fiscalization: None,
             },
             None,
         )
@@ -4284,6 +4302,7 @@ async fn checkout_response_preserves_extra_fields() {
             customer: None,
             dynamic_billing_descriptor: Some("Shop".into()),
             travel: Some(serde_json::json!({"flight": "AB123"})),
+            fiscalization: None,
         })
         .await
         .unwrap();
@@ -4872,4 +4891,473 @@ async fn update_product_serializes_new_fields() {
         )
         .await
         .unwrap();
+}
+
+#[tokio::test]
+async fn split_v2_serializes_recipients_array_and_smart_routing() {
+    let server = MockServer::start().await;
+    Mock::given(method("POST"))
+        .and(path("/transactions/payments"))
+        .and(body_partial_json(serde_json::json!({
+            "request": {
+                "amount": "100",
+                "additional_data": {
+                    "split": [
+                        {
+                            "amount": 40,
+                            "tax_id": "123456789",
+                            "company_name": "Shop A",
+                            "bank_account": "BY13NBRB3600900000002Z00AB00",
+                            "bank_bic": "NBRBBY2X",
+                            "city": "Minsk"
+                        },
+                        {"amount": 60, "tax_id": "987654321"}
+                    ],
+                    "smart_routing_options": {"allow_halva": true}
+                }
+            }
+        })))
+        .respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({
+            "transaction": {"uid": "u1"}
+        })))
+        .expect(1)
+        .mount(&server)
+        .await;
+
+    let splits = vec![
+        SplitRecipient {
+            amount: 40,
+            tax_id: "123456789".into(),
+            company_name: Some("Shop A".into()),
+            bank_account: Some("BY13NBRB3600900000002Z00AB00".into()),
+            bank_bic: Some("NBRBBY2X".into()),
+            description: None,
+            legal_address: None,
+            mailing_address: None,
+            country: None,
+            city: Some("Minsk".into()),
+            postal_code: None,
+            contact_email: None,
+            contact_phone: None,
+            memo: None,
+        },
+        SplitRecipient {
+            amount: 60,
+            tax_id: "987654321".into(),
+            company_name: None,
+            bank_account: None,
+            bank_bic: None,
+            description: None,
+            legal_address: None,
+            mailing_address: None,
+            country: None,
+            city: None,
+            postal_code: None,
+            contact_email: None,
+            contact_phone: None,
+            memo: None,
+        },
+    ];
+    assert_eq!(splits.iter().map(|s| s.amount).sum::<i64>(), 100);
+
+    client(&server)
+        .create_payment(
+            PaymentRequest {
+                amount: "100".into(),
+                currency: "BYN".into(),
+                test: true,
+                description: "Split payment".into(),
+                tracking_id: "split-1".into(),
+                expired_at: None,
+                dynamic_billing_descriptor: None,
+                duplicate_check: None,
+                language: None,
+                notification_url: None,
+                verification_url: None,
+                return_url: None,
+                billing_address: None,
+                credit_card: None,
+                customer: None,
+                additional_data: Some(AdditionalData {
+                    browser: None,
+                    contract: None,
+                    referer: None,
+                    masterpass: None,
+                    split: Some(splits),
+                    smart_routing_options: Some(SmartRoutingOptions {
+                        allow_halva: Some(true),
+                    }),
+                    excluded_gateways: None,
+                    extra: None,
+                }),
+                encrypted_data: None,
+                fiscalization: None,
+                custom_fields: None,
+            },
+            None,
+        )
+        .await
+        .expect("split payment should succeed");
+}
+
+#[tokio::test]
+async fn charge_serializes_fiscalization() {
+    let server = MockServer::start().await;
+    Mock::given(method("POST"))
+        .and(path("/services/credit_cards/charges"))
+        .and(body_partial_json(serde_json::json!({
+            "request": {
+                "fiscalization": {
+                    "external_id": "fisc-1",
+                    "positions": [{
+                        "name": "Product",
+                        "type": "service",
+                        "amount": 700,
+                        "quantity": 1.0,
+                        "measure_unit_code": 796,
+                        "untaxed": false
+                    }]
+                }
+            }
+        })))
+        .respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({
+            "transaction": {"uid": "u1"}
+        })))
+        .expect(1)
+        .mount(&server)
+        .await;
+
+    client(&server)
+        .charge_saved_card(
+            ChargeRequest {
+                amount: 700,
+                currency: "BYN".into(),
+                description: "Fiscalized charge".into(),
+                tracking_id: Some("fisc-charge-1".into()),
+                expired_at: None,
+                duplicate_check: None,
+                dynamic_billing_descriptor: None,
+                language: None,
+                notification_url: None,
+                verification_url: None,
+                return_url: None,
+                test: Some(true),
+                force_three_d_secure_verification: None,
+                credit_card: ChargeCreditCard {
+                    number: None,
+                    verification_value: None,
+                    holder: None,
+                    exp_month: None,
+                    exp_year: None,
+                    token: Some("tok_123".into()),
+                    skip_three_d_secure_verification: None,
+                },
+                customer: None,
+                additional_data: None,
+                fiscalization: Some(Fiscalization {
+                    external_id: "fisc-1".into(),
+                    positions: vec![FiscalizationPosition {
+                        name: "Product".into(),
+                        position_type: "service".into(),
+                        amount: 700,
+                        quantity: 1.0,
+                        measure_unit_code: 796,
+                        description: None,
+                        untaxed: false,
+                        nomenclature_code: None,
+                        taxes: None,
+                    }],
+                }),
+            },
+            None,
+        )
+        .await
+        .expect("fiscalized charge should succeed");
+}
+
+#[tokio::test]
+async fn refund_serializes_fiscalization_flag() {
+    let server = MockServer::start().await;
+    Mock::given(method("POST"))
+        .and(path("/transactions/refunds"))
+        .and(body_partial_json(serde_json::json!({
+            "request": {"fiscalization": true}
+        })))
+        .respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({
+            "transaction": {"uid": "2-1", "type": "refund", "status": "successful"}
+        })))
+        .expect(1)
+        .mount(&server)
+        .await;
+
+    client(&server)
+        .refund(
+            RefundRequest {
+                parent_uid: "1-1".into(),
+                amount: 50,
+                reason: "Client request".into(),
+                tracking_id: None,
+                additional_data: None,
+                fiscalization: Some(true),
+            },
+            None,
+        )
+        .await
+        .expect("fiscalized refund should succeed");
+}
+
+#[tokio::test]
+async fn checkout_token_create_serializes_fiscalization() {
+    let server = MockServer::start().await;
+    Mock::given(method("POST"))
+        .and(path("/payments/tokens"))
+        .and(body_partial_json(serde_json::json!({
+            "checkout": {
+                "fiscalization": {
+                    "external_id": "fisc-2",
+                    "positions": [{
+                        "name": "Token product",
+                        "type": "service",
+                        "amount": 7000,
+                        "quantity": 1.0,
+                        "measure_unit_code": 796,
+                        "untaxed": false
+                    }]
+                }
+            }
+        })))
+        .respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({
+            "checkout": {"token": "tok-1"}
+        })))
+        .expect(1)
+        .mount(&server)
+        .await;
+
+    client(&server)
+        .create_payment_token(&CheckoutRequest {
+            test: Some(true),
+            transaction_type: "payment".into(),
+            attempts: None,
+            iframe: None,
+            settings: None,
+            payment_method: None,
+            credit_card: None,
+            order: bepaid::types::CheckoutOrder {
+                currency: "BYN".into(),
+                amount: 7000,
+                description: Some("Widget order".into()),
+                tracking_id: None,
+                expired_at: None,
+                additional_data: None,
+                custom_fields: None,
+            },
+            customer: None,
+            dynamic_billing_descriptor: None,
+            travel: None,
+            fiscalization: Some(Fiscalization {
+                external_id: "fisc-2".into(),
+                positions: vec![FiscalizationPosition {
+                    name: "Token product".into(),
+                    position_type: "service".into(),
+                    amount: 7000,
+                    quantity: 1.0,
+                    measure_unit_code: 796,
+                    description: None,
+                    untaxed: false,
+                    nomenclature_code: None,
+                    taxes: None,
+                }],
+            }),
+        })
+        .await
+        .expect("fiscalized token creation should succeed");
+}
+
+#[tokio::test]
+async fn paginated_reports_v3_happy_path() {
+    let server = MockServer::start().await;
+    Mock::given(method("POST"))
+        .and(path("/api/reports"))
+        .and(wiremock::matchers::header("x-api-version", "3"))
+        .and(wiremock::matchers::header("authorization", AUTH))
+        .and(body_partial_json(serde_json::json!({
+            "report_params": {
+                "date_type": "created_at",
+                "from": "2022-01-25 00:00:00",
+                "to": "2022-01-27 23:59:59",
+                "status": "all",
+                "payment_method_type": "credit_card",
+                "time_zone": "Etc/UTC",
+                "starting_after": "10",
+                "manual_correction_from": "2022-01-26 00:00:00"
+            }
+        })))
+        .respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({
+            "transactions": [{"uid": "t1", "id": 11, "status": "successful"}],
+            "count": 1,
+            "has_more": true,
+            "first_object_id": "11",
+            "last_object_id": "11"
+        })))
+        .expect(1)
+        .mount(&server)
+        .await;
+
+    let r = client(&server)
+        .get_reports_v3(ReportListV3Request {
+            report_params: ReportListV3Params {
+                date_type: "created_at".into(),
+                from: "2022-01-25 00:00:00".into(),
+                to: "2022-01-27 23:59:59".into(),
+                status: "all".into(),
+                payment_method_type: "credit_card".into(),
+                time_zone: "Etc/UTC".into(),
+                starting_after: Some("10".into()),
+                ending_before: None,
+                manual_correction_from: Some("2022-01-26 00:00:00".into()),
+                manual_correction_to: None,
+            },
+        })
+        .await
+        .expect("paginated reports should succeed");
+
+    assert_eq!(r.count, Some(1));
+    assert_eq!(r.has_more, Some(true));
+    assert_eq!(r.first_object_id.as_deref(), Some("11"));
+    assert_eq!(r.last_object_id.as_deref(), Some("11"));
+    assert_eq!(r.transactions[0].uid.as_deref(), Some("t1"));
+}
+
+#[tokio::test]
+async fn cascading_serializes_excluded_gateways_and_parses_gateway_id() {
+    let server = MockServer::start().await;
+    Mock::given(method("POST"))
+        .and(path("/transactions/payments"))
+        .and(body_partial_json(serde_json::json!({
+            "request": {
+                "duplicate_check": false,
+                "additional_data": {"excluded_gateways": [3483, 3484]}
+            }
+        })))
+        .respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({
+            "transaction": {
+                "uid": "u1",
+                "status": "failed",
+                "payment": {"gateway_id": 3483, "status": "failed"}
+            }
+        })))
+        .expect(1)
+        .mount(&server)
+        .await;
+
+    let t = client(&server)
+        .create_payment(
+            PaymentRequest {
+                amount: "100".into(),
+                currency: "BYN".into(),
+                test: true,
+                description: "Cascading".into(),
+                tracking_id: "cascade-1".into(),
+                expired_at: None,
+                dynamic_billing_descriptor: None,
+                duplicate_check: Some(false),
+                language: None,
+                notification_url: None,
+                verification_url: None,
+                return_url: None,
+                billing_address: None,
+                credit_card: None,
+                customer: None,
+                additional_data: Some(AdditionalData {
+                    browser: None,
+                    contract: None,
+                    referer: None,
+                    masterpass: None,
+                    split: None,
+                    smart_routing_options: None,
+                    excluded_gateways: Some(vec![3483, 3484]),
+                    extra: None,
+                }),
+                encrypted_data: None,
+                fiscalization: None,
+                custom_fields: None,
+            },
+            None,
+        )
+        .await
+        .expect("cascading payment should succeed");
+
+    assert_eq!(t.payment.unwrap().gateway_id, Some(3483));
+}
+
+#[tokio::test]
+async fn transaction_parses_fiscalization_receipts() {
+    let server = MockServer::start().await;
+    Mock::given(method("GET"))
+        .and(path("/transactions/fisc-1"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({
+            "transaction": {
+                "uid": "fisc-1",
+                "status": "successful",
+                "fiscalization": {
+                    "id": "f1",
+                    "external_id": "ext-1",
+                    "status": "successful",
+                    "code": "S.0000",
+                    "message": "ok",
+                    "friendly_message": "ok",
+                    "receipts": [{
+                        "id": "r1",
+                        "serial_id": "s1",
+                        "receipt_num": "1",
+                        "created_at": "2024-01-01T00:00:00Z",
+                        "ofd_id": "ofd1",
+                        "ofd_link": "https://ofd.example/receipt",
+                        "ofd_qr_code": "qr",
+                        "total_amount": 700,
+                        "receipt_info": {
+                            "kkm_id": "kkm1",
+                            "id": "ri1",
+                            "shift_id": "sh1",
+                            "serial_id": "s1",
+                            "serial_shift_id": "ss1",
+                            "issue_time": "2024-01-01T00:00:00Z",
+                            "operation_type": "sale",
+                            "payment_type": "card",
+                            "currency_code": "BYN",
+                            "subtotal_amount": 700,
+                            "total_amount": 700,
+                            "cashier_code": "c1",
+                            "cashier_name": "John",
+                            "receipt_num": "1",
+                            "ofd_receipt_id": "ofd-r1",
+                            "ofd_qr_code": "qr"
+                        }
+                    }]
+                }
+            }
+        })))
+        .expect(1)
+        .mount(&server)
+        .await;
+
+    let t = client(&server)
+        .get_transaction("fisc-1")
+        .await
+        .expect("transaction should parse");
+
+    let fisc = t.fiscalization.expect("fiscalization present");
+    assert_eq!(fisc.status.as_deref(), Some("successful"));
+    assert_eq!(fisc.code.as_deref(), Some("S.0000"));
+    let receipt = &fisc.receipts.unwrap()[0];
+    assert_eq!(receipt.total_amount, Some(700));
+    assert_eq!(
+        receipt
+            .receipt_info
+            .as_ref()
+            .unwrap()
+            .cashier_name
+            .as_deref(),
+        Some("John")
+    );
 }

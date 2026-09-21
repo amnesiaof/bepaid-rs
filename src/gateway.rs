@@ -378,6 +378,7 @@ impl BepaidClient {
     ///         },
     ///         customer: None,
     ///         additional_data: None,
+    ///         fiscalization: None,
     ///     };
     ///     let charge = client.charge_saved_card(request, None).await?;
     ///     println!("uid: {}", charge.uid);

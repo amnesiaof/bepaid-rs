@@ -1,7 +1,7 @@
 //! Merchant reports and payout control.
 //!
 //! These endpoints live on the merchant host ([`DEFAULT_MERCHANT_URL`]) and
-//! use dedicated API versions: the report list is v2, the count v3.
+//! use dedicated API versions: the report list is v2 or v3, the count v3.
 //! See the methods on [`BepaidClient`].
 
 use reqwest::Method;
@@ -10,6 +10,7 @@ use crate::client::BepaidClient;
 use crate::error::BepaidError;
 use crate::types::{
     ChannelBalance, ReportCountRequest, ReportCountResponse, ReportListRequest, ReportListResponse,
+    ReportListV3Request,
 };
 
 impl BepaidClient {
@@ -26,6 +27,25 @@ impl BepaidClient {
             &self.merchant("/api/reports"),
             Some(&req),
             Some("2"),
+        )
+        .await
+    }
+
+    /// List shop transactions over a date range with cursor pagination
+    /// (`API v3`).
+    ///
+    /// Same path as [`BepaidClient::get_reports`] but `X-API-Version: 3`.
+    /// Follow `has_more` using `last_object_id` as `starting_after` (or
+    /// `first_object_id` as `ending_before`) on the next page.
+    pub async fn get_reports_v3(
+        &self,
+        req: ReportListV3Request,
+    ) -> Result<ReportListResponse, BepaidError> {
+        self.request_json(
+            Method::POST,
+            &self.merchant("/api/reports"),
+            Some(&req),
+            Some("3"),
         )
         .await
     }

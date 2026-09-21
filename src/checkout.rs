@@ -90,6 +90,7 @@ impl BepaidClient {
     ///         customer: None,
     ///         dynamic_billing_descriptor: None,
     ///         travel: None,
+    ///         fiscalization: None,
     ///     };
     ///     let token = client.create_payment_token(&request).await?;
     ///     println!("redirect: {}", token.redirect_url.unwrap_or_default());
