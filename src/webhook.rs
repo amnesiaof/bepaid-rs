@@ -2,8 +2,8 @@ use base64::{Engine, engine::general_purpose::STANDARD};
 use rsa::RsaPublicKey;
 use rsa::pkcs1v15::{Signature as RsaSignature, VerifyingKey};
 use rsa::pkcs8::DecodePublicKey;
+use rsa::sha2::{Digest, Sha256};
 use rsa::signature::hazmat::PrehashVerifier;
-use sha2::{Digest, Sha256};
 
 use crate::error::BepaidError;
 use crate::types::{CardNotification, CheckoutStatus, Subscription, WebhookNotification};
